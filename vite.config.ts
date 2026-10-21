@@ -28,7 +28,8 @@ function modelList(): Plugin {
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   plugins: [modelList()],
-  server: { host: true },
+  // open：啟動後自動用預設瀏覽器打開；host：讓同一個 Wi-Fi 的 iPad 也連得到
+  server: { host: true, open: true },
   build: { target: 'es2022', assetsInlineLimit: 0, chunkSizeWarningLimit: 1000 },
   test: { include: ['tests/**/*.test.ts'], environment: 'node' },
 });
