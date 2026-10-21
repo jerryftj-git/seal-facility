@@ -62,9 +62,12 @@ export class GameAudio {
     src.start(t0);
   }
 
-  /** 轉換一隻生物；音高跟著預測值走 */
-  morph(predicted: number, up: boolean): void {
-    const f = 220 + predicted * 14;
+  /**
+   * 轉換一隻生物：轉四足是上揚音、轉雙足是下降音。
+   * 音高刻意固定，不跟著預測值變化（那會變成額外的數值線索，見 QUESTIONS.md Q2）。
+   */
+  morph(up: boolean): void {
+    const f = up ? 420 : 380;
     this.tone(f, 0.12, { type: 'square', gain: 0.05, slideTo: up ? f * 1.25 : f * 0.8 });
     this.tone(f * 2, 0.08, { type: 'sine', gain: 0.05 });
   }

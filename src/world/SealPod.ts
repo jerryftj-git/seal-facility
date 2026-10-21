@@ -30,8 +30,12 @@ export class SealPod {
     this.object = assets.get('seal_pod').scene;
     this.glass = (this.object.getObjectByName('glass') as THREE.Mesh) ?? null;
     if (this.glass) {
-      // 每個艙各自一份材質，除霧時才不會影響別的實例
-      this.glass.material = (this.glass.material as THREE.Material).clone();
+      // 每個艙各自一份材質，除霧時才不會影響別的實例；glb 匯出的玻璃也強制可透明
+      const mat = (this.glass.material as THREE.Material).clone();
+      mat.transparent = true;
+      mat.depthWrite = false;
+      this.glass.material = mat;
+      this.glass.renderOrder = 2;
     }
     this.object.getObjectByName('slots_start')?.getWorldPosition(this.start);
     this.object.getObjectByName('slots_end')?.getWorldPosition(this.end);

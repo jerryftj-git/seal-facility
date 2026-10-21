@@ -261,7 +261,7 @@ export class Game {
     if (r.event === 'locked') return false;
     this.deduction = r.state;
     r.slots.forEach((slot) => this.level.holo.morph(slot, to));
-    this.audio.morph(r.state.predicted, dir === 'toQuad');
+    this.audio.morph(dir === 'toQuad');
     this.panel.render(this.panelView());
     this.panel.pulse();
     if (r.event === 'solved') {

@@ -54,8 +54,8 @@ export class GauntletPanel {
       </div>
       <div class="g-hyp"></div>
       <div class="g-counts">
-        <span class="g-count biped">${ICONS.scout}<span>雙足</span><b></b></span>
-        <span class="g-count quad">${ICONS.hunter}<span>四足</span><b></b></span>
+        <span class="g-count biped">${ICONS.scout}<span>偵察體<small>雙足</small></span><b></b></span>
+        <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四足</small></span><b></b></span>
       </div>
       <div class="g-bars">
         <div class="g-row pred"><label>預測觸地</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
