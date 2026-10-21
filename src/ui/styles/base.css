@@ -1,0 +1,135 @@
+:root {
+  --bg: #0b1118;
+  --panel: rgba(6, 18, 26, 0.78);
+  --cyan: #2ee6f0;
+  --cyan-dim: rgba(46, 230, 240, 0.35);
+  --cyan-faint: rgba(46, 230, 240, 0.12);
+  --green: #3dff8a;
+  --under: #ff9a2e;
+  --over: #b06bff;
+  --warning: #ff5a1f;
+  --text: #d8eef5;
+  --text-dim: #7d97a6;
+  --font: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  --mono: 'SF Mono', 'Consolas', 'Roboto Mono', ui-monospace, monospace;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#ui button {
+  pointer-events: auto;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--cyan-dim);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.85em;
+  text-align: center;
+  color: var(--cyan);
+  background: rgba(46, 230, 240, 0.06);
+}
+
+body[data-mode='touch'] .desktop-only,
+body[data-mode='desktop'] .touch-only {
+  display: none !important;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* 共用的全像掃描線 + 閃爍 */
+.holo {
+  position: relative;
+  border: 1px solid var(--cyan-dim);
+  background: var(--panel);
+  box-shadow:
+    0 0 24px rgba(46, 230, 240, 0.15),
+    inset 0 0 32px rgba(46, 230, 240, 0.06);
+  animation: holo-flicker 4s infinite steps(1);
+}
+
+.holo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(46, 230, 240, 0.07) 0 1px, transparent 1px 4px);
+  animation: holo-scan 6s linear infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes holo-scan {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 120px;
+  }
+}
+
+@keyframes holo-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  41% {
+    opacity: 0.93;
+  }
+  42% {
+    opacity: 1;
+  }
+  77% {
+    opacity: 0.96;
+  }
+  78% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo,
+  .holo::after {
+    animation: none;
+  }
+}
