@@ -1,0 +1,70 @@
+# 進度報告：里程碑 1（2026-10-21 晚間）
+
+**線上版：<https://jerryftj-git.github.io/seal-facility/>**
+（除錯參數：`?fps=1` 顯示幀率，`?seed=123` 固定題目，`?feet=1` 預覽 Q1 的觸地點標記）
+
+## 早上先看這三件事
+
+1. **用 iPad 實機玩一輪**：打開 <https://jerryftj-git.github.io/seal-facility/?fps=1>。
+   - 我只能用瀏覽器的觸控模擬測，沒有實機。而且我的預覽視窗在背景會被節流，**60fps 沒辦法在這邊驗證**。
+   - 請特別試：搖桿、右半邊拖曳、互動鈕、推演面板按住連按、直拿／橫拿切換，並看右上角幀率。
+2. **決定 QUESTIONS.md 的 Q1、Q2**：都是可能影響「自己撞出規律」的回饋設計，目前都是保守（關閉）的版本。
+   - Q1 可以直接用 <https://jerryftj-git.github.io/seal-facility/?feet=1> 看效果。
+3. **看一下 GitHub Actions 的部署延遲**：
+   - 今晚有一段時間 push 之後要等約 10 分鐘，GitHub 才建立 workflow run（後來都補跑了，最新版是 push 自動部署成功的）。
+   - 中間我有手動觸發幾次。因為 workflow 設了 `cancel-in-progress`，Actions 頁面會看到幾個 **cancelled** 的 run，這是正常的（被較新的 run 取代）。
+   - 如果哪天 push 後一直沒部署，在 repo 的 Actions 頁面按 **Run workflow** 就能手動部署。
+
+## 已完成的步驟
+
+| # | 步驟 | 狀態 | 驗證方式 |
+|---|---|---|---|
+| 1 | 專案骨架與部署 | ✅ | Vite 8 + three.js r186 + TypeScript + Vitest；Actions 部署到 Pages，`VITE_BASE` 由 repo 名稱帶入 |
+| 2 | puzzle 純邏輯 + 測試 | ✅ | 產題、推演狀態機（單步＋批次介面）、起始假設 allBiped／random、評級。**2058 個測試全過**（含 2000 個種子的參數化產題測試） |
+| 3 | 場景與 PC 操作 | ✅ | 走廊、碰撞、追尾鏡頭（防穿牆）、WASD + pointer lock、E 互動。用瀏覽器實測走路、撞牆、互動提示 |
+| 4 | 觸控 | ✅（模擬） | 自動偵測切換、浮動搖桿、拖曳視角、互動鈕、iPad 直式面板放下方。用 375×812 和 820×1180 觸控模擬測試，**未在實機測** |
+| 5 | 推演手套面板 | ✅ | 全像投影、能量條、差值方向色、按住連發（解開或到邊界自動停）、退出再進入步數延續、時間停止 |
+| 6 | 門與獎勵流程 | ✅ | 轉綠 → 除霧顯形 → 鏡頭轉向門 → 門分段滑開 → 寶箱 → 晶片飛進 HUD → 結算 → 再次潛入。從頭到尾實際跑過 |
+| 7 | 美術氛圍 | ✅（佔位等級） | 發光邊緣 shader、全像 shader、霧、光錐、灰塵、警示燈與斜紋、Web Audio 合成音效 |
+| 8 | README | ✅ | 本機執行、iPad 測試、部署、**.glb 檔名／節點／動畫命名規則與 Blender 匯出設定** |
+
+另外確認過的事：
+
+- 放一個測試用的 `public/models/chest.glb` 時，AssetLoader 會改用它，開箱邏輯也照常（用 `lid` 節點）。確認後已刪除。
+- 正式版打包加上 `/seal-facility/` 路徑可以正常執行，Console 沒有錯誤。
+- 正式版只會去載入打包時真的存在的 glb，不會出現 404。
+
+## 未完成／限制
+
+- **iPad 實機與 60fps 未驗證**：原因同上。目前場景約 65 draw calls、4 千個三角形，預算還很寬。
+- **生物 glb 的動畫不會播放**：探員的 `idle`／`walk`、門和寶箱的 `open` 都有接上，但偵察體／獵獸目前只顯示靜態模型。README 已註明。
+- **部署延遲**：GitHub 端偶爾延遲建立 workflow run，見上面第 3 點。
+
+## QUESTIONS.md 摘要
+
+| # | 問題 | 目前的做法 |
+|---|---|---|
+| Q1 | 全像投影的腳底要不要畫發光「觸地點」（雙足 2 點、四足 4 點）？可能讓規律更好發現，也可能太直白 | 已實作，**預設關閉**，`?feet=1` 可預覽 |
+| Q2 | 轉換音效的音高要不要跟著預測值升降？多一個感官線索，但規格沒提 | **固定音高**（上揚／下降） |
+
+這次沒有發現其他規格矛盾。評級「幾乎人人 S」的問題已經在開工前和你確認過（維持原規格，並預留 random 起點與批次轉盤）。
+
+## 相關文件
+
+- [README.md](README.md)：怎麼跑、怎麼部署、怎麼換模型
+- [DECISIONS.md](DECISIONS.md)：所有我自行決定的數值與細節（顏色、時長、尺寸、版面）
+- [QUESTIONS.md](QUESTIONS.md)：待你確認的事項
+
+## Commit 紀錄
+
+```
+正式版只載入打包時存在的 glb，避免 Console 出現 404
+README、DECISIONS、QUESTIONS；面板顯示生物名稱、轉換音固定音高、iPad 防縮放
+觸控修正與美術氛圍
+測試：碰撞、互動判定、按住連發計時器
+場景、PC 操作、推演手套、門與寶箱流程（可完整遊玩的初版）
+新增 DECISIONS.md
+puzzle：起始假設 allBiped/random、統一動作介面（單步＋批次）、依起點計算最少步數
+puzzle 純邏輯：產題、推演狀態機、評級與 Vitest 測試
+專案骨架：Vite + three.js + Vitest + GitHub Pages 部署 workflow
+```
