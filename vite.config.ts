@@ -6,5 +6,5 @@ export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   server: { host: true },
   build: { target: 'es2022', assetsInlineLimit: 0, chunkSizeWarningLimit: 1000 },
-  test: { include: ['tests/**/*.test.ts'], environment: 'node', passWithNoTests: true },
+  test: { include: ['tests/**/*.test.ts'], environment: 'node' },
 });
