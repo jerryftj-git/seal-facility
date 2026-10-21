@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import availableModels from 'virtual:model-list';
 import { ASSET_IDS, type AssetId } from './manifest';
 import { PLACEHOLDERS } from './placeholders';
 
@@ -40,6 +41,11 @@ export class AssetLoader {
 
   private async loadOne(id: AssetId): Promise<void> {
     if (this.entries.has(id)) return;
+    // 正式版只載入打包時確定存在的檔案；開發模式每個都試（方便直接丟新模型進來）
+    if (!import.meta.env.DEV && !availableModels.includes(id)) {
+      this.entries.set(id, { source: 'placeholder', animations: [] });
+      return;
+    }
     const url = `${this.baseUrl}${id}.glb`;
     try {
       const res = await fetch(url);
