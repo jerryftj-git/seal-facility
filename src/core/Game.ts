@@ -20,6 +20,7 @@ import { Input } from '../player/Input';
 import { KeyboardMouseSource } from '../player/KeyboardMouseSource';
 import { PlayerController } from '../player/PlayerController';
 import { ThirdPersonCamera, type CameraPose } from '../player/ThirdPersonCamera';
+import { FpsMeter } from '../ui/FpsMeter';
 import { GauntletPanel, type ConvertDir, type PanelView } from '../ui/GauntletPanel';
 import { Hud } from '../ui/Hud';
 import { ResultScreen } from '../ui/ResultScreen';
@@ -59,6 +60,7 @@ export class Game {
   private readonly result: ResultScreen;
   private readonly loop = new Loop((dt, now) => this.tick(dt, now));
   private readonly rng: Rng;
+  private readonly fps: FpsMeter | null;
 
   level!: Level;
   player!: PlayerController;
@@ -83,7 +85,9 @@ export class Game {
     });
     this.result = new ResultScreen(this.ui, () => this.retry());
 
-    const seed = new URLSearchParams(location.search).get('seed');
+    const params = new URLSearchParams(location.search);
+    this.fps = params.get('fps') === '1' ? new FpsMeter(this.ui) : null;
+    const seed = params.get('seed');
     this.rng = seed !== null && Number.isFinite(Number(seed)) ? createRng(Number(seed)) : Math.random;
 
     this.scene.background = new THREE.Color(PALETTE.background);
@@ -358,6 +362,7 @@ export class Game {
     this.followPose = this.tpc.pose(this.player.position, this.level.world, this.level.ceiling, dt);
     this.rig.apply(this.followPose);
     this.renderer.render(this.scene, this.camera);
+    this.fps?.tick(this.renderer.info.render);
   }
 
   private updateInteraction(): void {
@@ -389,6 +394,7 @@ export class Game {
     const exploring = this.state === 'explore';
     this.touch.setVisible(exploring && this.input.mode === 'touch');
     if (!exploring) {
+      this.hud.hideHints();
       this.near = null;
       this.hud.setPrompt(null);
       this.touch.setInteract(null);

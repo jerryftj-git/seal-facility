@@ -42,6 +42,8 @@ export class ThirdPersonCamera {
     // 拉近要快、拉遠要慢，避免抖動
     const k = allowed < this.currentDist ? 1 : 1 - Math.exp(-4 * dt);
     this.currentDist += (allowed - this.currentDist) * k;
-    return { position: target.clone().addScaledVector(dir, this.currentDist), target, fov: 60 };
+    // 直式畫面（iPad 直拿）視野放寬一點
+    const fov = window.innerWidth < window.innerHeight ? 70 : 60;
+    return { position: target.clone().addScaledVector(dir, this.currentDist), target, fov };
   }
 }

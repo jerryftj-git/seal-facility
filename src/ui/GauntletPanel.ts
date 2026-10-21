@@ -84,7 +84,11 @@ export class GauntletPanel {
         e.preventDefault();
         if (this.heldPointer !== null) return;
         this.heldPointer = e.pointerId;
-        b.setPointerCapture?.(e.pointerId);
+        try {
+          b.setPointerCapture(e.pointerId);
+        } catch {
+          /* 合成事件或已失效的 pointer 無法 capture，不影響操作 */
+        }
         b.classList.add('down');
         this.repeat[dir].press(performance.now());
       });

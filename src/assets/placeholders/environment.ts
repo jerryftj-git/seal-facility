@@ -12,11 +12,11 @@ export const CORRIDOR = { width: 6, height: 4, length: 4 } as const;
 let mats: Record<'wall' | 'floor' | 'trim' | 'glow' | 'glowDim' | 'warn', THREE.Material> | null = null;
 function m() {
   mats ??= {
-    wall: new THREE.MeshStandardMaterial({ color: PALETTE.wall, roughness: 0.85, metalness: 0.35 }),
-    floor: new THREE.MeshStandardMaterial({ color: PALETTE.floor, roughness: 0.7, metalness: 0.5 }),
+    wall: new THREE.MeshStandardMaterial({ color: PALETTE.wall, roughness: 0.75, metalness: 0.1 }),
+    floor: new THREE.MeshStandardMaterial({ color: PALETTE.floor, roughness: 0.6, metalness: 0.2 }),
     trim: new THREE.MeshStandardMaterial({ color: PALETTE.trim, roughness: 0.6, metalness: 0.6 }),
     glow: glowMaterial(PALETTE.cyanSoft),
-    glowDim: glowMaterial(0x1b6f80),
+    glowDim: glowMaterial(0x2a8fa3),
     warn: glowMaterial(PALETTE.warning),
   };
   return mats;
@@ -62,6 +62,9 @@ export function buildCorridorStraight(): THREE.Object3D {
       { geo: box(0.12, 0.04, L - 0.8), pos: [0, H - 0.04, -L / 2 - 0.2] },
       { geo: box(0.04, 0.02, L - 0.6), pos: [-2.3, 0.012, -L / 2 - 0.2] },
       { geo: box(0.04, 0.02, L - 0.6), pos: [2.3, 0.012, -L / 2 - 0.2] },
+      // 牆面腰線
+      { geo: box(0.02, 0.03, L - 0.6), pos: [-hw + 0.01, 1.25, -L / 2 - 0.2] },
+      { geo: box(0.02, 0.03, L - 0.6), pos: [hw - 0.01, 1.25, -L / 2 - 0.2] },
     ]),
   );
   const root = new THREE.Group();
@@ -122,10 +125,10 @@ export function buildSealPod(): THREE.Object3D {
       color: 0x1a3c46,
       emissive: 0x0f3b44,
       emissiveIntensity: 1,
-      roughness: 0.15,
+      roughness: 0.55,
       metalness: 0.1,
       transparent: true,
-      opacity: 0.94,
+      opacity: 0.95,
       depthWrite: false,
     }),
   );

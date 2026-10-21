@@ -43,7 +43,7 @@ export class SealPod {
     this.readoutN.set(readings.N, CYAN);
     this.readoutL.set(readings.L, CYAN);
 
-    this.light.position.set(0, 1.4, 0.9);
+    this.light.position.set(0, 2.1, 0.2);
     this.object.add(this.light, this.creatures);
   }
 
@@ -62,12 +62,13 @@ export class SealPod {
     const margin = n < 8 ? (8 - n) * 0.06 : 0;
     const a = this.start.clone().lerp(this.end, margin / 2);
     const b = this.end.clone().lerp(this.start, margin / 2);
-    return a.lerp(b, t);
+    // 前後交錯排列，數量多時才不會疊在一起
+    return a.lerp(b, t).add(new THREE.Vector3(0, 0, i % 2 === 0 ? -0.18 : 0.18));
   }
 
-  /** 全像投影的位置：艙前方 */
+  /** 全像投影的位置：艙前方，和艙內的 slot 一一對應 */
   holoLocal(i: number, n: number): THREE.Vector3 {
-    return this.slotLocal(i, n).add(new THREE.Vector3(0, 0.25, 1.3));
+    return this.slotLocal(i, n).add(new THREE.Vector3(0, 0.25, 1.35));
   }
 
   setSolvedLook(): void {
@@ -100,6 +101,9 @@ export class SealPod {
 
   /** 解開後顯形的生物輕微晃動（時間停止時不呼叫） */
   update(time: number): void {
+    // 封印中：艙體霧氣緩慢呼吸
+    const mat = this.glass?.material as THREE.MeshStandardMaterial | undefined;
+    if (mat && !this.solved) mat.emissiveIntensity = 0.85 + Math.sin(time * 1.4) * 0.25;
     this.creatures.children.forEach((c, i) => {
       c.position.y = 0.35 + Math.sin(time * 1.3 + i) * 0.01;
     });

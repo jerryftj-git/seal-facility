@@ -6,7 +6,7 @@ import { applyMaterial, glowMaterial, hologramMaterial } from '../core/materials
 import { PALETTE } from '../core/palette';
 
 const MORPH_TIME = 0.3;
-const HOLO_SCALE = 0.78;
+const HOLO_SCALE = 0.72;
 /** 斜向面對鏡頭（3/4 側面），剪影好認、又不會和隔壁重疊 */
 const FACING = Math.PI / 2 - 0.65;
 
@@ -91,6 +91,7 @@ export class HoloProjection {
     this.base = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.7), glowMaterial(PALETTE.cyan, 0.12));
     (this.base.material as THREE.MeshBasicMaterial).blending = THREE.AdditiveBlending;
     (this.base.material as THREE.MeshBasicMaterial).depthWrite = false;
+    (this.base.material as THREE.MeshBasicMaterial).fog = false;
     // positions 是封印艙的本地座標，slot 沿 X 軸排列
     this.base.rotation.x = -Math.PI / 2;
     this.base.position.set(mid.x, mid.y - 0.01, mid.z);

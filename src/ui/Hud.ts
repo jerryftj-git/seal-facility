@@ -54,6 +54,11 @@ export class Hud {
     this.hintTimer = window.setTimeout(() => this.hints.classList.add('fade'), seconds * 1000);
   }
 
+  hideHints(): void {
+    window.clearTimeout(this.hintTimer);
+    this.hints.classList.add('hidden');
+  }
+
   setPaused(on: boolean): void {
     this.pause.classList.toggle('hidden', !on);
   }

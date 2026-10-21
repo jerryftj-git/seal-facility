@@ -13,7 +13,13 @@ export function buildAgent(): THREE.Object3D {
       { geo: cyl(0.06, 0.06, 0.5), pos: [-0.36, 0.9, 0.05], rot: [0.2, 0, 0] },
     ]),
   );
-  const visor = cached('agent-visor', () => mergeParts([{ geo: box(0.36, 0.08, 0.1), pos: [0, 1.48, 0.25] }]));
+  const visor = cached('agent-visor', () =>
+    mergeParts([
+      { geo: box(0.4, 0.09, 0.12), pos: [0, 1.48, 0.25] },
+      // 背包上的狀態燈
+      { geo: box(0.06, 0.2, 0.03), pos: [0.1, 1.08, -0.38] },
+    ]),
+  );
   const glove = cached('agent-glove', () => mergeParts([{ geo: box(0.15, 0.13, 0.17), pos: [0.37, 0.62, 0.13] }]));
 
   const root = new THREE.Group();
@@ -21,7 +27,7 @@ export function buildAgent(): THREE.Object3D {
   root.add(
     new THREE.Mesh(
       body,
-      rimMaterial({ color: 0x2b3946, roughness: 0.55, metalness: 0.4, rimColor: 0x3c6a80, rimIntensity: 0.7 }),
+      rimMaterial({ color: 0x4a5d6e, roughness: 0.5, metalness: 0.35, rimColor: 0x5fb8d0, rimIntensity: 0.9 }),
     ),
   );
   const v = new THREE.Mesh(visor, new THREE.MeshBasicMaterial({ color: PALETTE.cyan }));

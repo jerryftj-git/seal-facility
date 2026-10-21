@@ -5,12 +5,14 @@ import { PALETTE } from '../core/palette';
 /** 門旁的橘紅警示燈：旋轉的燈罩 + 閃爍的點光源；解鎖後轉綠、停止閃爍 */
 export class Beacon {
   readonly object = new THREE.Group();
-  private readonly light = new THREE.PointLight(PALETTE.warning, 10, 9, 2);
+  private readonly light: THREE.PointLight | null;
   private readonly lamp: THREE.Mesh;
   private readonly shade: THREE.Mesh;
   private clear = false;
 
-  constructor() {
+  constructor(withLight: boolean) {
+    this.light = withLight ? new THREE.PointLight(PALETTE.warning, 5, 8, 2) : null;
+    if (this.light) this.light.position.x = 2.6;
     this.lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.22, 10), glowMaterial(PALETTE.warning));
     this.shade = new THREE.Mesh(
       new THREE.BoxGeometry(0.05, 0.26, 0.3),
@@ -20,19 +22,20 @@ export class Beacon {
     const pivot = new THREE.Group();
     pivot.name = 'pivot';
     pivot.add(this.shade);
-    this.object.add(this.lamp, pivot, this.light);
+    this.object.add(this.lamp, pivot);
+    if (this.light) this.object.add(this.light);
   }
 
   setClear(): void {
     this.clear = true;
     (this.lamp.material as THREE.MeshBasicMaterial).color.set(PALETTE.green);
-    this.light.color.set(PALETTE.green);
-    this.light.intensity = 4;
+    this.light?.color.set(PALETTE.green);
+    if (this.light) this.light.intensity = 3;
   }
 
   update(time: number): void {
     if (this.clear) return;
     this.object.getObjectByName('pivot')!.rotation.y = time * 5;
-    this.light.intensity = 6 + Math.max(0, Math.sin(time * 5)) * 14;
+    if (this.light) this.light.intensity = 2.5 + Math.max(0, Math.sin(time * 5)) * 6;
   }
 }
