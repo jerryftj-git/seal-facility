@@ -58,6 +58,8 @@ def parse_args():
     p.add_argument('--idle')
     p.add_argument('--out', default='public/models/agent.glb')
     p.add_argument('--height', type=float, default=1.8)
+    p.add_argument('--arm-swing', type=float, default=1.0,
+                   help='手臂擺動幅度（1 = 照原動畫）。AI 把手臂和身體黏在一起時用 0.5～0.7，腰側才不會被拉開')
     a = p.parse_args(argv)
     for k in ('rig', 'walk', 'run', 'idle', 'out'):
         v = getattr(a, k)
@@ -108,7 +110,10 @@ def prefix(src):
     return 'mixamorig:' if any(b.name.startswith('mixamorig:') for b in src.data.bones) else ''
 
 
-def retarget(src, tgt, name):
+ARM_BONES = {'upper_arm.L', 'upper_arm.R', 'forearm.L', 'forearm.R', 'hand.L', 'hand.R'}
+
+
+def retarget(src, tgt, name, arm_swing=1.0):
     pre = prefix(src)
     act_src = src.animation_data.action
     f0, f1 = (int(round(v)) for v in act_src.frame_range)
@@ -164,7 +169,11 @@ def retarget(src, tgt, name):
                     d = (Sw @ sp.tail) - (Sw @ sp.head)
                     d_arm = (Tinv3 @ d).normalized()
                     y0 = rot0 @ Vector((0, 1, 0))
-                    R = y0.rotation_difference(d_arm).to_matrix() @ rot0
+                    q = y0.rotation_difference(d_arm)
+                    if bn in ARM_BONES and arm_swing != 1.0:
+                        # 只轉一部分：手臂擺動幅度縮小（相對「父骨頭帶著走、自己不動」的姿勢）
+                        q = Quaternion().slerp(q, arm_swing)
+                    R = q.to_matrix() @ rot0
             else:
                 R = rot0
             t = M0.translation.copy()
@@ -274,7 +283,7 @@ def main():
         if not path:
             continue
         src = load_source(path)
-        clips[name], ratios[name] = retarget(src, tgt, name)
+        clips[name], ratios[name] = retarget(src, tgt, name, a.arm_swing)
         bpy.data.objects.remove(src, do_unlink=True)
     if 'idle' not in clips:
         clips['idle'] = idle_from(tgt, clips.get('walk') or clips['run'])

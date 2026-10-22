@@ -95,10 +95,16 @@ npm run dev
 
 ### 探員模型規格（含骨架動畫）
 
-目前的探員是從概念圖 `art/concepts/sheets/agent_turnaround.jpg` 用 AI 生成的 3D 角色，動作是 Mixamo 的
-Standard Walk／Standard Run 重定向上去的（流程見下方「從概念圖做出探員」）。
-對照圖：`art/concepts/agent_compare.png`。上一版（Mixamo Beta 人偶）備份在 `art/backup/agent_mixamo_beta.glb`，
-複製回 `public/models/agent.glb` 就能換回去（記得把 `src/player/locomotion.ts` 的 `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` 改回 1.56／4.4）。
+目前的探員是機器盔甲造型，從概念圖 `art/concepts/sheets/agent_robot_turnaround.webp` 用 AI 生成，
+動作是 Mixamo 的 Standard Walk／Standard Run 重定向上去的（流程見下方「從概念圖做出探員」）。
+對照圖：`art/concepts/agent_robot_compare.png`。
+
+舊版本備份在 `art/backup/`，複製回 `public/models/agent.glb` 就能換回去：
+
+| 檔案 | 造型 | `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` |
+|---|---|---|
+| `agent_human.glb` | 真人探員（墨鏡、深藍戰鬥服） | 1.25／3.52 |
+| `agent_mixamo_beta.glb` | Mixamo Beta 人偶 | 1.56／4.4 |
 
 | 項目 | 規格 |
 |---|---|
@@ -131,7 +137,7 @@ Standard Walk／Standard Run 重定向上去的（流程見下方「從概念圖
 FACES=16000 ~/.claude/skills/godot-ai-3d-assets/scripts/ai3d/run_all.sh agent
 ```
 
-3. 綁骨（骨架位置從網格量：手、手臂中心線、胯下、腿；概念圖要是 A 字或 T 字站姿）：
+3. 綁骨（骨架位置從網格量：手、手臂中心線、胯下、腿；A 字、T 字或手臂下垂的站姿都可以，A 字效果最好）：
 
 ```bash
 blender -b --python tools/rig-agent.py -- art/generated/agent_tex/agent_textured.obj art/generated/rig/agent_rest.glb
@@ -140,9 +146,11 @@ blender -b --python tools/rig-agent.py -- art/generated/agent_tex/agent_textured
 4. 把 Mixamo 動畫重定向上去、縮放 1.8 m、貼地、面向 −Z、匯出：
 
 ```bash
-blender -b --python tools/retarget-agent.py -- --rig art/generated/rig/agent_rest.glb --walk "$HOME/下載/Standard Walk.fbx" --run "$HOME/下載/Standard Run.fbx" --out public/models/agent.glb
+blender -b --python tools/retarget-agent.py -- --rig art/generated/rig/agent_rest.glb --walk "$HOME/下載/Standard Walk.fbx" --run "$HOME/下載/Standard Run.fbx" --arm-swing 0.6 --out public/models/agent.glb
 ```
 
+   `--arm-swing`：手臂擺動幅度（1 = 照原動畫）。第 3 步若印出「手臂和軀幹黏在一起」（手臂下垂的站姿，AI 常把手臂和身體生成成一整塊），
+   用 0.6 左右，腰側才不會被手拉出一片；A 字站姿用 1 即可。
    最後會印出「步幅比例」：把 `src/player/locomotion.ts` 的 `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` 設成
    1.56 × 比例、4.4 × 比例，腳步才不會打滑。
 5. 檢查：`blender -b -P ~/.claude/skills/godot-ai-3d-assets/scripts/preview/check_glb.py -- public/models/agent.glb /tmp/check.json`，

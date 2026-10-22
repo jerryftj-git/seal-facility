@@ -6,9 +6,10 @@
 我們的概念圖是寫實比例的 A 字站姿：手在身高 52%、往外張開約 40°。直接用的話手臂骨會擺在軀幹側邊，
 權重把手臂和大腿綁在一起（跑步時兩腿之間被拉出一片「裙子」）。
 這裡沿用技能的網格整理與自動權重，只把骨架位置改成「從網格量出來的」：
-  - 手掌：最外側 10% 頂點的重心
-  - 手臂：手臂和軀幹分開的那幾層切片，取手臂截面中心擬合一條直線，肩、肘、腕都放在這條線上
-  - 腿：兩腿分開的高度（胯下）與腿的截面中心
+  - 手臂：手臂和軀幹分開的那幾層切片（寬度像手臂的最外側區段），截面中心擬合一條直線，肩、肘、腕、手掌都放在這條線上
+  - 手掌：手臂截面最低處往上一點（指尖往上 8 cm）
+  - 胯下：中線附近沒有頂點的最高處；腿：每一側最靠近中線的截面中心
+A 字站姿和手臂自然下垂的站姿都適用，只要手臂和身體之間有空隙。
 
 用法（在專案根目錄）：
     blender -b --python tools/rig-agent.py -- art/generated/agent_tex/agent_textured.obj art/generated/rig/agent_rest.glb
@@ -46,57 +47,93 @@ def slices(vs, z0, z1, step=0.03, gap=0.04):
 
 
 def measure(ob):
+    """從網格量骨架位置。A 字站姿（手臂張開）和手臂自然下垂的站姿都適用：
+    只要手臂在某些高度和軀幹之間有空隙即可。"""
     vs = [v.co.copy() for v in ob.data.vertices]
     H = max(v.z for v in vs)
-    # 手掌：左右兩側最外側 10% 頂點的重心（左右平均，骨架對稱）
-    hands = []
-    for sgn in (1, -1):
-        mx = max(v.x * sgn for v in vs)
-        pts = [v for v in vs if v.x * sgn > 0.9 * mx]
-        c = sum(pts, Vector()) / len(pts)
-        hands.append(Vector((c.x * sgn, c.y, c.z)))
-    hand = (hands[0] + hands[1]) / 2
+    k = H / 2.02
+    rows = slices(vs, 0.1 * H, 0.85 * H, step=0.02)
 
-    # 手臂中心線：手掌上方到肩膀之間，最外側那段和軀幹分開的截面
-    pts = []
-    for z, segs in slices(vs, hand.z + 0.04, 0.8 * H):
+    # 每一層、每一側：最外側、不跨過中線、寬度像手臂（< 25 cm）的區段 → 手臂截面
+    arm_pts = {1: [], -1: []}
+    for z, segs in rows:
         for sgn in (1, -1):
-            outer = [(a * sgn, b * sgn) for a, b in segs]
-            outer = [(min(p), max(p)) for p in outer if min(p) > 0.08]
-            if outer:
-                lo, hi = max(outer, key=lambda p: p[1])
-                if hi > 0.5 * hand.x:  # 是手臂，不是軀幹的邊
-                    pts.append(((lo + hi) / 2, z))
-    if len(pts) < 4:
-        raise SystemExit('[rig-agent] 量不到手臂（手臂沒有和軀幹分開？概念圖要是 A 字或 T 字站姿）')
-    n = len(pts)
-    mz = sum(z for _, z in pts) / n
-    mxx = sum(x for x, _ in pts) / n
-    b = sum((z - mz) * (x - mxx) for x, z in pts) / sum((z - mz) ** 2 for _, z in pts)
-    a = mxx - b * mz
-    top_sep = max(z for _, z in pts)
+            side = [(min(a * sgn, b_ * sgn), max(a * sgn, b_ * sgn)) for a, b_ in segs]
+            side = [p for p in side if p[0] > 0.02]
+            if len(side) < 1:
+                continue
+            lo, hi = max(side, key=lambda p: p[1])
+            # 這一層至少要有兩段在這一側（手臂＋腿／軀幹），或是在身體寬度之外，才算和軀幹分開
+            others = [p for p in side if p != (lo, hi)]
+            crosses = any(a <= 0 <= b_ for a, b_ in segs)
+            if (others or crosses) and hi - lo < 0.25 * k and lo > 0.1 * k:
+                arm_pts[sgn].append(((lo + hi) / 2, z))
+    fused = any(len(arm_pts[sgn]) < 5 for sgn in (1, -1))
+    if fused:
+        # AI 把下垂的手臂和軀幹黏成一塊（截面一路都是一整片）：
+        # 手掌用最外側頂點，手臂當成從肩甲內側垂直往下
+        print('[rig-agent] 手臂和軀幹黏在一起，改用「黏住的手臂」量法（擺手時軀幹側邊會被帶動一點）')
+        hands = []
+        for sgn in (1, -1):
+            mx = max(v.x * sgn for v in vs)
+            pts = [v for v in vs if v.x * sgn > 0.93 * mx]
+            hands.append(sum(pts, Vector()) / len(pts) * 1)
+            hands[-1].x *= sgn
+        hc = (hands[0] + hands[1]) / 2
+        sz = 0.76 * H
+        sh_out = max(abs(x) for z, segs in rows if abs(z - sz) < 0.02 for seg in segs for x in seg)
+        top = (sh_out - 0.06 * k, sz)
+        bot = (hc.x - 0.02 * k, hc.z - 0.06 * k)
+        for sgn in (1, -1):
+            arm_pts[sgn] = [(top[0] + (bot[0] - top[0]) * t, top[1] + (bot[1] - top[1]) * t) for t in (0.0, 0.5, 1.0)]
+
+    def fit(pts):
+        n = len(pts)
+        mz = sum(z for _, z in pts) / n
+        mx = sum(x for x, _ in pts) / n
+        b = sum((z - mz) * (x - mx) for x, z in pts) / max(1e-9, sum((z - mz) ** 2 for _, z in pts))
+        return mx - b * mz, b
+
+    # 左右各擬合一條線再平均（骨架左右對稱）
+    lines = [fit(arm_pts[s]) for s in (1, -1)]
+    a = sum(l[0] for l in lines) / 2
+    b = sum(l[1] for l in lines) / 2
 
     def arm_x(z):
         return a + b * z
 
-    sz = max(0.745 * H, top_sep + 0.1)
-    wz = hand.z + 0.07
-    shoulder = Vector((max(0.12, arm_x(sz)), 0, sz))
-    wrist = Vector((arm_x(wz), hand.y * 0.5, wz))
-    elbow = shoulder.lerp(wrist, 0.52) + Vector((0, 0.03, 0))   # 手肘稍微往後，彎曲方向才對
+    hand_bottom = sum(min(z for _, z in arm_pts[s]) for s in (1, -1)) / 2 - (0.02 * k if fused else 0)
+    top_sep = sum(max(z for _, z in arm_pts[s]) for s in (1, -1)) / 2
+    hz = hand_bottom + 0.08 * k
+    hand = Vector((arm_x(hz), -0.03 * k, hz))
+    wz = hand_bottom + 0.17 * k
+    wrist = Vector((arm_x(wz), -0.015 * k, wz))
+    sz = 0.76 * H if fused else max(0.76 * H, top_sep + 0.08 * k)
+    shoulder = Vector((max(0.12 * k, arm_x(sz)), 0, sz))
+    elbow = shoulder.lerp(wrist, 0.52) + Vector((0, 0.03 * k, 0))   # 手肘稍微往後，彎曲方向才對
 
-    # 腿：兩腿分開的最高處＝胯下；腿的截面中心
+    # 胯下：中線附近沒有頂點的最高處
     crotch = 0.42 * H
-    leg_c = []
-    for z, segs in slices(vs, 0.15 * H, 0.5 * H):
-        legs = [s for s in segs if s[0] > 0.02 or s[1] < -0.02]
-        if len(segs) >= 2 and all(abs(x) < hand.x * 0.6 for s in segs for x in s):
+    for z, segs in rows:
+        if z < 0.2 * H or z > 0.6 * H:
+            continue
+        if not any(x0 <= 0.02 * k and x1 >= -0.02 * k for x0, x1 in segs):
             crotch = max(crotch, z)
-            leg_c += [abs(s[0] + s[1]) / 2 for s in legs]
-    fx = sum(leg_c) / len(leg_c) if leg_c else 0.15
-    m = {'H': H, 'hand': hand, 'shoulder': shoulder, 'elbow': elbow, 'wrist': wrist,
-         'arm_line': (a, b), 'crotch': crotch, 'foot_x': fx}
-    print('[rig-agent] ' + '  '.join(f'{k}={tuple(round(c, 3) for c in v) if isinstance(v, Vector) else (tuple(round(c, 3) for c in v) if isinstance(v, tuple) else round(v, 3))}' for k, v in m.items()))
+    # 腿：胯下以下每一側最靠近中線的區段中心
+    leg_c = []
+    for z, segs in rows:
+        if 0.15 * H < z < crotch - 0.05 * k:
+            for sgn in (1, -1):
+                side = [(min(x0 * sgn, x1 * sgn), max(x0 * sgn, x1 * sgn)) for x0, x1 in segs]
+                side = [p for p in side if p[0] > -0.01]
+                if side:
+                    lo, hi = min(side, key=lambda p: p[0])
+                    leg_c.append((lo + hi) / 2)
+    fx = sum(leg_c) / len(leg_c) if leg_c else 0.15 * k
+    m = {'fused': fused, 'H': H, 'hand': hand, 'shoulder': shoulder, 'elbow': elbow, 'wrist': wrist,
+         'arm_line': (a, b), 'hand_bottom': hand_bottom, 'arm_top': top_sep, 'crotch': crotch, 'foot_x': fx}
+    fmt = lambda v: tuple(round(c, 3) for c in v) if isinstance(v, (Vector, tuple)) else round(v, 3)  # noqa: E731
+    print('[rig-agent] ' + '  '.join(f'{k_}={fmt(v)}' for k_, v in m.items()))
     return m
 
 
@@ -149,6 +186,10 @@ def main():
     ob.name = 'agent'
     arm = bc.make_armature('agent')
     rg.skin(ob, arm)
+    if m['fused']:
+        # 不要硬切權重（試過：把腰側的手臂權重拿掉，手掌和腰黏住的地方反而被撕開 66 cm）。
+        # 改在重定向時用 --arm-swing 減少擺手幅度。
+        print('[rig-agent] 提醒：手臂黏在身體上，重定向時建議加 --arm-swing 0.6')
     bpy.ops.object.select_all(action='DESELECT')
     ob.select_set(True)
     arm.select_set(True)
