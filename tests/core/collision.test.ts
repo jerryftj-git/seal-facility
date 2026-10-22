@@ -44,6 +44,7 @@ describe('CollisionWorld', () => {
 describe('nearestInteractable', () => {
   const make = (id: 'pod' | 'chest', x: number, on = true): Interactable => ({
     id,
+    level: 1,
     label: id,
     x,
     z: 0,

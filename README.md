@@ -180,11 +180,31 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 ### 資料晶片與推演手套升級
 
 - **升級樹的數值**（花費、名稱、效果說明、各級邊框顏色）全部在 `src/progress/gloveUpgrades.ts` 的 `GLOVE_UPGRADES`。
-- **晶片來源**：開門 +1、寶箱 +1（每次重玩都給）、每個房間的隱藏晶片 +1（只能拿一次）。隱藏晶片位置在 `src/core/Level.ts` 的 `LAYOUT.hiddenChip`。
-- **存檔**：localStorage，key 集中在 `src/core/saveData.ts` 的 `SAVE_CONFIG`（晶片數、手套等級、各房間隱藏晶片、一次性提示、開場是否看過）。
+- **晶片來源**：開門 +1、寶箱 +1（每次重玩都給）、每個房間的隱藏晶片 +1（只能拿一次）。隱藏晶片位置在關卡資料（見下一節）。
+- **存檔**：localStorage，key 集中在 `src/core/saveData.ts` 的 `SAVE_CONFIG`（晶片數、手套等級、各房間隱藏晶片、目前關卡、本輪晶片、各關掃描／評級、一次性提示、開場是否看過）。
   想重新體驗「第一次」：在瀏覽器 Console 執行 `localStorage.removeItem('sealFacility.save.v1')` 後重新整理。
 - 操作：封印艙前按 E 打開推演（推演分頁）；其他地方按 E（觸控版是右上角的「手套」按鈕）打開手套的升級分頁。Tab 切換分頁、升級分頁按 Enter 升級。
   手套 Lv2 起，推演時 Q／W 一次轉換 2 隻。
+
+### 關卡資料（`src/levels/levels.ts`）
+
+每一關一筆 `LevelDef`，新增或調整關卡只改這裡：
+
+| 欄位 | 意思 | 第一關 | 第二關 | 第三關（只有資料） |
+|---|---|---|---|---|
+| `id` | 關卡編號 | 1 | 2 | 3 |
+| `roomId` | 存檔用的房間 id（隱藏晶片） | zone01 | zone02 | zone03 |
+| `creatures` | 生物總數 | 5 | 8 | 10 |
+| `contactPoints` | 地上的接觸點 | 18 | 22 | 28 |
+| `randomPuzzle` | true 時改用原本的隨機產題 | false | false | false |
+| `hiddenChip` | 隱藏晶片位置與藏法（`crates` 補給箱後方／`nook` 左牆 U 型死角） | 補給箱後方 | U 型死角 | — |
+| `corridorColor` | 走廊發光線條顏色 | 青 `0x2a8fa3` | 紫 `0x8a4fd8` | — |
+| `requiresScan` | 要先到掃描台掃描才看得到地上的接觸點 | false | true | true |
+
+- 偵察體／獵獸的數量由「總數、接觸點」推回（獵獸 = (L − 2N) ÷ 2），測試會檢查三關都是合理的整數。
+- 最少步數與評級照舊由題目和手套工具計算（`src/puzzle/rating.ts`），沒有寫死在關卡裡。
+- `AREAS` 決定一個區域由哪幾關串起來（區域 1 = 第一關＋第二關）。各關的走廊依序往 −Z 接，每段 44 m，中間是一道隔門（`src/core/Level.ts`、`src/world/Segment.ts`）。
+- **走廊線條換色**：線條材質名稱是 `accent`，`recolorAccent()` 會把它換成該關的顏色。之後換成 glb 走廊時，發光線條的材質也命名為 `accent` 就能跟著換色。
 
 ### 主角外觀參數（和場景的融合）
 
@@ -193,7 +213,7 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 ### 注意事項
 
-- **碰撞不讀模型**：走廊範圍、艙、門、寶箱的碰撞框寫在 `src/core/Level.ts`（`LAYOUT` 和 `world.add(...)`）。
+- **碰撞不讀模型**：走廊範圍、艙、門、寶箱的碰撞框寫在 `src/world/Segment.ts`（`LAYOUT` 和 `world.add(...)`）。
   模型尺寸和上表差很多時，要一起調整那裡。
 - **生物模型也會拿來做全像投影**：投影時所有材質會換成全像 shader，只看得出剪影和輪廓，所以剪影要好認。
   場上最多同時有 8 隻投影 + 8 隻真實生物，每隻建議 **3,000 個三角形以內**。
@@ -204,8 +224,9 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 ```
 src/
-├─ core/      遊戲迴圈、流程狀態機（Game）、關卡（Level）、碰撞、補間、音效、色票與材質
-├─ world/     場景實體：封印艙、全像投影、門、寶箱、警示燈、氛圍效果
+├─ core/      遊戲迴圈、流程狀態機（Game）、區域（Level：各段走廊＋隔門＋燈光池）、碰撞、補間、音效、存檔、色票與材質
+├─ levels/    關卡資料（LEVELS、AREAS）：純資料，不依賴 three.js
+├─ world/     場景實體：一段走廊（Segment）、封印艙、全像投影、掃描台、門、寶箱、警示燈、氛圍效果
 ├─ player/    輸入（鍵鼠／觸控統一介面）、角色控制、追尾鏡頭
 ├─ puzzle/    純邏輯（不依賴 three.js）：生物種類、讀數、產題、推演狀態機、評級
 ├─ ui/        HUD、觸控搖桿、推演手套面板、標題／結算畫面、CSS

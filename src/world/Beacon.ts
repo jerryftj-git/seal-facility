@@ -5,14 +5,18 @@ import { PALETTE } from '../core/palette';
 /** 門旁的橘紅警示燈：旋轉的燈罩 + 閃爍的點光源；解鎖後轉綠、停止閃爍 */
 export class Beacon {
   readonly object = new THREE.Group();
-  private readonly light: THREE.PointLight | null;
+  /** 不直接顯示，由 LightPool 借真的點光源照它的設定亮（見 SealPod.light） */
+  readonly light: THREE.PointLight | null;
   private readonly lamp: THREE.Mesh;
   private readonly shade: THREE.Mesh;
   private clear = false;
 
   constructor(withLight: boolean) {
     this.light = withLight ? new THREE.PointLight(PALETTE.warning, 5, 8, 2) : null;
-    if (this.light) this.light.position.x = 2.6;
+    if (this.light) {
+      this.light.position.x = 2.6;
+      this.light.visible = false;
+    }
     this.lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.22, 10), glowMaterial(PALETTE.warning));
     this.shade = new THREE.Mesh(
       new THREE.BoxGeometry(0.05, 0.26, 0.3),

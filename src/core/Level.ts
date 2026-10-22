@@ -1,211 +1,146 @@
 import * as THREE from 'three';
 import type { AssetLoader } from '../assets/AssetLoader';
 import { CORRIDOR } from '../assets/placeholders/environment';
+import type { LevelDef } from '../levels/levels';
 import type { Puzzle } from '../puzzle';
-import { Dust, hazardStripes, lightCone } from '../world/Atmosphere';
-import { Beacon } from '../world/Beacon';
-import { HiddenChip, supplyCrates } from '../world/HiddenChip';
-import { Chest } from '../world/Chest';
 import { Door } from '../world/Door';
-import { HoloProjection } from '../world/HoloProjection';
-import { SealPod } from '../world/SealPod';
-import { CollisionWorld } from './Collision';
+import { LightPool } from '../world/LightPool';
+import { LAYOUT, Segment, ZONE_LENGTH } from '../world/Segment';
+import { CollisionWorld, type Obstacle } from './Collision';
+import type { GameAudio } from './Audio';
 import type { Interactable } from './Interactables';
-import { PALETTE } from './palette';
+import type { Tweens } from './Tweens';
+
+export { LAYOUT, ZONE_LENGTH } from '../world/Segment';
+
+/** 超過這個距離的區段不畫（霧在 40 m 已經 99% 以上，看不出差別） */
+const DRAW_DISTANCE = 40;
+
+export interface LevelSetup {
+  readonly def: LevelDef;
+  readonly puzzle: Puzzle;
+  readonly initialSlots: readonly string[];
+  readonly hiddenChipPicked: boolean;
+  readonly scanned: boolean;
+}
+
+/** 兩段走廊之間的隔門：上一關結算按「繼續前進」才打開 */
+interface Gate {
+  readonly door: Door;
+  readonly obstacle: Obstacle;
+  /** 隔門的世界座標 z */
+  readonly z: number;
+}
 
 /*
- * 關卡配置（俯視，-Z 往前）：
+ * 一個區域（俯視，-Z 往前）：各關的走廊依序往 -Z 接起來，中間用隔門分開。
  *
- *   z = +8   ┌──────┐ 出生端牆
- *            │  ●   │ 出生點 z = +3.5
- *            │      │ 走廊
- *   z = -16  │▓     │ ← 封印艙（貼左牆，中心 z = -20）
- *   z = -24  ╞══════╡ 門
- *            │      │ 門後走廊
- *            │  ▣   │ 寶箱 z = -33
- *   z = -36  └──────┘ 端牆
+ *   z = +8    第一段入口端牆
+ *   z = -36   隔門（第一關結算「繼續前進」後打開）→ 第二段（紫色線條）
+ *   z = -80   第二段出口端牆
  */
-export const LAYOUT = {
-  start: 8,
-  end: -36,
-  spawn: { x: 0, z: 3.5, facing: Math.PI },
-  pod: { x: -2.3, z: -20 },
-  doorZ: -24,
-  chest: { x: 0, z: -33 },
-  /** 推演模式鏡頭看的位置 */
-  podFocus: new THREE.Vector3(-2.0, 1.55, -20),
-  /** 這個房間的 id（存檔記錄隱藏晶片是否已撿） */
-  roomId: 'zone01',
-  /** 補給箱（右牆中段）與藏在後方牆角的晶片（高 1.1 m）。
-   *  從入口直線走到封印艙（x ≈ 0 ～ −0.6）離晶片約 2.6 m，超過 1.5 m 的拾取範圍。 */
-  crates: { x: 2.25, z: -10.3 },
-  hiddenChip: new THREE.Vector3(2.55, 1.1, -11.4),
-  /** 開門演出的鏡位 */
-  doorShot: { position: new THREE.Vector3(1.9, 2.0, -14.2), target: new THREE.Vector3(-0.2, 1.7, -24) },
-} as const;
-
 export class Level {
   readonly root = new THREE.Group();
   readonly world: CollisionWorld;
   readonly ceiling = CORRIDOR.height;
-  readonly pod: SealPod;
-  readonly holo: HoloProjection;
-  readonly door: Door;
-  readonly chest: Chest;
-  readonly beacons: Beacon[] = [];
-  readonly interactables: Interactable[];
-  readonly hiddenChip: HiddenChip;
-  private readonly dust: Dust;
+  readonly segments: Segment[] = [];
+  readonly gates: Gate[] = [];
+  readonly interactables: Interactable[] = [];
+  /** 場景裡真正的點光源（數量固定）：走廊 3、封印艙 1、警示燈 1、寶箱 1——和只有第一段時一樣 */
+  private readonly pools = { corridor: new LightPool(3), pod: new LightPool(1), beacon: new LightPool(1), chest: new LightPool(1) };
 
-  constructor(assets: AssetLoader, puzzle: Puzzle, initialSlots: readonly string[], hiddenChipPicked = false) {
+  constructor(assets: AssetLoader, setups: readonly LevelSetup[]) {
     const hw = CORRIDOR.width / 2;
-    this.world = new CollisionWorld({ minX: -hw, maxX: hw, minZ: LAYOUT.end, maxZ: LAYOUT.start });
+    const last = setups.length - 1;
+    this.world = new CollisionWorld({ minX: -hw, maxX: hw, minZ: LAYOUT.end - last * ZONE_LENGTH, maxZ: LAYOUT.start });
 
-    // 走廊模組
-    for (let z = LAYOUT.start; z > LAYOUT.end; z -= CORRIDOR.length) {
-      const seg = assets.get('corridor_straight').scene;
-      seg.position.z = z;
-      this.root.add(seg);
-    }
-    const capStart = assets.get('corridor_end').scene;
-    capStart.position.z = LAYOUT.start;
-    capStart.rotation.y = Math.PI;
-    const capEnd = assets.get('corridor_end').scene;
-    capEnd.position.z = LAYOUT.end;
-    this.root.add(capStart, capEnd);
+    setups.forEach((s, i) => {
+      const seg = new Segment(assets, this.world, {
+        ...s,
+        oz: -i * ZONE_LENGTH,
+        startCap: i === 0,
+        endCap: i === last,
+      });
+      this.segments.push(seg);
+      this.root.add(seg.root);
+      this.interactables.push(...seg.interactables);
+      this.pools.corridor.add(...seg.corridorLights);
+      this.pools.pod.add(seg.pod.light);
+      this.pools.beacon.add(...seg.beacons.map((b) => b.light));
+      this.pools.chest.add(seg.chest.light);
 
-    // 封印艙：正面朝 +X（走廊中央）
-    this.pod = new SealPod(assets, puzzle.readings);
-    this.pod.object.position.set(LAYOUT.pod.x, 0, LAYOUT.pod.z);
-    this.pod.object.rotation.y = Math.PI / 2;
-    this.root.add(this.pod.object);
-    this.world.add({ name: 'pod', minX: -hw, maxX: LAYOUT.pod.x + 0.8, minZ: LAYOUT.pod.z - 2.75, maxZ: LAYOUT.pod.z + 2.75 });
-
-    const n = initialSlots.length;
-    const positions = initialSlots.map((_, i) => this.pod.holoLocal(i, n));
-    this.holo = new HoloProjection(
-      assets,
-      puzzle.species.map((s) => s.id),
-      positions,
-      initialSlots,
-    );
-    this.pod.object.add(this.holo.object);
-
-    // 門
-    this.door = new Door(assets.get('door'));
-    this.door.object.position.z = LAYOUT.doorZ;
-    this.root.add(this.door.object);
-    this.world.add({ name: 'door', minX: -2.2, maxX: 2.2, minZ: LAYOUT.doorZ - 0.3, maxZ: LAYOUT.doorZ + 0.3 });
-    this.world.add({ name: 'doorFrameL', minX: -hw, maxX: -2.2, minZ: LAYOUT.doorZ - 0.4, maxZ: LAYOUT.doorZ + 0.4 });
-    this.world.add({ name: 'doorFrameR', minX: 2.2, maxX: hw, minZ: LAYOUT.doorZ - 0.4, maxZ: LAYOUT.doorZ + 0.4 });
-    // 兩盞警示燈共用一個點光源（省效能）
-    [-2.6, 2.6].forEach((x, i) => {
-      const b = new Beacon(i === 0);
-      b.object.position.set(x, 3.55, LAYOUT.doorZ + 0.55);
-      this.beacons.push(b);
-      this.root.add(b.object);
+      // 和上一段之間的隔門（在這一段的入口）
+      if (i > 0) {
+        const door = new Door(assets.get('door'));
+        const z = LAYOUT.start + seg.oz;
+        door.object.position.z = z;
+        this.root.add(door.object);
+        const obstacle = this.world.add({ name: `gate${s.def.id}`, minX: -2.2, maxX: 2.2, minZ: z - 0.3, maxZ: z + 0.3 });
+        this.world.add({ name: `gateFrameL${s.def.id}`, minX: -hw, maxX: -2.2, minZ: z - 0.4, maxZ: z + 0.4 });
+        this.world.add({ name: `gateFrameR${s.def.id}`, minX: 2.2, maxX: hw, minZ: z - 0.4, maxZ: z + 0.4 });
+        this.gates.push({ door, obstacle, z });
+      }
     });
 
-    // 寶箱
-    this.chest = new Chest(assets.get('chest'));
-    this.chest.object.position.set(LAYOUT.chest.x, 0, LAYOUT.chest.z);
-    this.root.add(this.chest.object);
-    this.world.add({
-      name: 'chest',
-      minX: LAYOUT.chest.x - 0.5,
-      maxX: LAYOUT.chest.x + 0.5,
-      minZ: LAYOUT.chest.z - 0.35,
-      maxZ: LAYOUT.chest.z + 0.35,
-      height: 0.6,
-    });
-
-    // 燈光：一盞半球光打底 + 少量點光源（手機效能預算）
+    // 一盞半球光打底（全區域共用）＋點光源池
     this.root.add(new THREE.HemisphereLight(0x7898b2, 0x0c1218, 2.0));
-    const entry = new THREE.PointLight(0x9fd8ff, 14, 14, 2);
-    entry.position.set(0, 3.4, -4);
-    const mid = new THREE.PointLight(0x7fb8d8, 8, 12, 2);
-    mid.position.set(1.5, 3.4, -14);
-    const back = new THREE.PointLight(PALETTE.cyanSoft, 8, 12, 2);
-    back.position.set(0, 3.4, -30);
-    this.root.add(entry, mid, back);
+    for (const p of Object.values(this.pools)) this.root.add(p.object);
+  }
 
-    // 氛圍：天花板燈下的光錐、門前與寶箱前的警示斜紋、漂浮灰塵
-    for (let z = LAYOUT.start - 2.2; z > LAYOUT.end; z -= 8) {
-      const cone = lightCone(0x9fd8ff, 3.9, 1.6, 0.006);
-      cone.position.set(0, 3.95, z);
-      this.root.add(cone);
-    }
-    // 收容區的橘紅警示燈條（只有發光材質，不加點光源）
-    const warnMat = new THREE.MeshBasicMaterial({ color: PALETTE.warning });
-    for (const z of [LAYOUT.pod.z - 3.2, LAYOUT.pod.z + 3.2]) {
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.12), warnMat);
-      lamp.position.set(-hw + 0.04, 2.9, z);
-      const lamp2 = lamp.clone();
-      lamp2.position.x = hw - 0.04;
-      this.root.add(lamp, lamp2);
-    }
-    const podCone = lightCone(PALETTE.cyan, 3.8, 2.2, 0.006);
-    podCone.position.set(-1.2, 3.95, LAYOUT.pod.z);
-    this.root.add(podCone);
-    for (const z of [LAYOUT.doorZ + 0.9, LAYOUT.doorZ - 0.9]) {
-      const s = hazardStripes(4.4, 0.6);
-      s.position.z = z;
-      this.root.add(s);
-    }
-    this.dust = new Dust(180, { minX: -hw + 0.3, maxX: hw - 0.3, minZ: LAYOUT.end, maxZ: LAYOUT.start, height: 3.6 });
-    this.root.add(this.dust.object);
+  /** 關卡編號 → 區段 */
+  segment(levelId: number): Segment {
+    const seg = this.segments.find((s) => s.def.id === levelId);
+    if (!seg) throw new Error(`這個區域沒有第 ${levelId} 關`);
+    return seg;
+  }
 
-    // 補給箱與隱藏晶片
-    const crates = supplyCrates();
-    crates.position.set(LAYOUT.crates.x, 0, LAYOUT.crates.z);
-    this.root.add(crates);
-    const cx = LAYOUT.crates.x;
-    const cz = LAYOUT.crates.z;
-    this.world.add({ name: 'crates', minX: cx - 0.6, maxX: hw, minZ: cz - 0.45, maxZ: cz + 0.45, height: 1.4 });
-    this.world.add({ name: 'crateSmall', minX: cx - 0.85, maxX: cx - 0.25, minZ: cz + 0.45, maxZ: cz + 1.05, height: 0.6 });
-    this.hiddenChip = new HiddenChip(LAYOUT.hiddenChip);
-    if (hiddenChipPicked) this.hiddenChip.hide();
-    this.root.add(this.hiddenChip.object);
+  /** 世界座標 z 落在哪一段（給自動存檔判斷「走進第二段」） */
+  segmentAt(z: number): Segment {
+    const i = THREE.MathUtils.clamp(Math.floor((LAYOUT.start - z) / ZONE_LENGTH), 0, this.segments.length - 1);
+    return this.segments[i];
+  }
 
-    this.interactables = [
-      {
-        id: 'chip',
-        label: '拾取資料晶片',
-        x: LAYOUT.hiddenChip.x,
-        z: LAYOUT.hiddenChip.z,
-        radius: 1.5,
-        enabled: () => !this.hiddenChip.picked,
-      },
-      {
-        id: 'pod',
-        label: '檢查封印艙',
-        x: LAYOUT.pod.x + 1.7,
-        z: LAYOUT.pod.z,
-        radius: 2.3,
-        enabled: () => !this.pod.solved,
-      },
-      {
-        id: 'chest',
-        label: '開啟寶箱',
-        x: LAYOUT.chest.x,
-        z: LAYOUT.chest.z + 0.8,
-        radius: 1.6,
-        enabled: () => this.door.isOpen && !this.chest.opened,
-      },
-    ];
+  /** 打開通往 levelId 那一段的隔門 */
+  async openGate(levelId: number, tweens: Tweens, audio: GameAudio): Promise<void> {
+    const i = this.segments.findIndex((s) => s.def.id === levelId);
+    const gate = this.gates[i - 1];
+    if (!gate || gate.door.isOpen) return;
+    await gate.door.open(tweens, audio);
+    gate.obstacle.enabled = false;
+  }
+
+  /**
+   * 燈光池依 focus（玩家位置）挑最近的燈。instant：直接到位（建好關卡、換位置時）。
+   */
+  updateLights(dt: number, focus: THREE.Vector3, instant = false): void {
+    if (instant) this.root.updateMatrixWorld(true);
+    for (const p of Object.values(this.pools)) p.update(dt, focus, instant);
+  }
+
+  /**
+   * 看不到的區段整段不畫（省 draw call）：隔著一道關著的隔門、或離鏡頭太遠。
+   * 第一關隔門打開前，第二段完全不畫，畫面負擔和只有第一段時一樣。
+   */
+  updateVisibility(camera: THREE.Vector3): void {
+    const here = this.segments.indexOf(this.segmentAt(camera.z));
+    this.segments.forEach((seg, i) => {
+      const top = LAYOUT.start + seg.oz;
+      const bottom = LAYOUT.end + seg.oz;
+      const dist = camera.z > top ? camera.z - top : camera.z < bottom ? bottom - camera.z : 0;
+      let open = true;
+      // gates[k] 在第 k 段和第 k+1 段之間
+      for (let k = Math.min(i, here); k < Math.max(i, here); k++) open &&= this.gates[k].door.isOpen;
+      seg.root.visible = dist < DRAW_DISTANCE && open;
+    });
   }
 
   /** time 只在世界時間流動時前進（推演模式時間停止） */
   update(dt: number, time: number): void {
-    this.door.update(dt);
-    this.chest.update(dt, time);
-    this.pod.update(time);
-    this.beacons.forEach((b) => b.update(time));
-    this.dust.update(time);
-    this.hiddenChip.update(dt, time);
+    for (const s of this.segments) s.update(dt, time);
+    for (const g of this.gates) g.door.update(dt);
   }
 
   dispose(): void {
-    this.pod.dispose();
+    for (const s of this.segments) s.dispose();
   }
 }

@@ -24,6 +24,8 @@ export interface PanelView {
   pair: { size: number; canToBiped: boolean; canToQuad: boolean } | null;
   /** 手套 Lv3：顯示算式提示 */
   formula: boolean;
+  /** 已經掃描過地面（不需要掃描的關卡固定 true）。false 時地上的接觸點顯示「？？」、按鈕停用 */
+  scanned: boolean;
 }
 
 export type PanelTab = 'deduce' | 'upgrade';
@@ -44,6 +46,7 @@ export interface PanelCallbacks {
 export const SHOW_STEP_HINT = true;
 
 const GOAL_TEXT = '目標：算出來的接觸點要達到地上的接觸點，才能開啟大門';
+const SCAN_FIRST_TEXT = '先掃描地面才能推演';
 
 const KEYS: Record<string, ConvertDir> = {
   KeyA: 'toBiped',
@@ -69,6 +72,8 @@ export class GauntletPanel {
   private heldPointer: number | null = null;
   private tab: PanelTab = 'deduce';
   private canDeduce = true;
+  /** 還沒掃描地面：推演按鈕停用 */
+  private locked = false;
   private view: PanelView | null = null;
   private upgrade = { level: 1, chips: 0 };
 
@@ -185,8 +190,12 @@ export class GauntletPanel {
     if (view) this.render(view);
     this.root.querySelector('.g-nodeduce')!.classList.toggle('hidden', this.canDeduce);
     this.root.querySelector('.g-deduce-body')!.classList.toggle('hidden', !this.canDeduce);
-    for (const d of DIRS) this.btn[d].disabled = !this.canDeduce;
+    this.applyDisabled();
     this.setTab(tab);
+  }
+
+  private applyDisabled(): void {
+    for (const d of DIRS) this.btn[d].disabled = !this.canDeduce || this.locked;
   }
 
   close(): void {
@@ -239,8 +248,10 @@ export class GauntletPanel {
 
   render(v: PanelView): void {
     this.view = v;
+    this.locked = !v.scanned;
+    this.applyDisabled();
     const r = this.root;
-    const dir = v.diff > 0 ? 'under' : v.diff < 0 ? 'over' : 'match';
+    const dir = !v.scanned ? 'locked' : v.diff > 0 ? 'under' : v.diff < 0 ? 'over' : 'match';
     r.dataset.dir = dir;
     r.classList.toggle('solved', v.solved);
     r.querySelector('.g-title-text')!.textContent = v.solved ? '封印解除' : '推演模式';
@@ -254,20 +265,26 @@ export class GauntletPanel {
     const pred = r.querySelector('.pred')!;
     const act = r.querySelector('.act')!;
     pred.querySelector<HTMLElement>('.fill')!.style.width = pct(v.predicted);
-    act.querySelector<HTMLElement>('.fill')!.style.width = pct(v.actual);
+    // 還沒掃描：地上的接觸點未知（「？？」、能量條空白、預測條上不標差距）
+    act.querySelector<HTMLElement>('.fill')!.style.width = v.scanned ? pct(v.actual) : '0%';
     const gap = pred.querySelector<HTMLElement>('.gap')!;
     gap.style.left = pct(Math.min(v.predicted, v.actual));
-    gap.style.width = pct(Math.abs(v.diff));
-    pred.querySelector<HTMLElement>('.mark')!.style.left = pct(v.actual);
+    gap.style.width = v.scanned ? pct(Math.abs(v.diff)) : '0%';
+    const mark = pred.querySelector<HTMLElement>('.mark')!;
+    mark.style.left = pct(v.actual);
+    mark.style.visibility = v.scanned ? '' : 'hidden';
     pred.querySelector('output')!.textContent = String(v.predicted);
-    act.querySelector('output')!.textContent = String(v.actual);
+    act.querySelector('output')!.textContent = v.scanned ? String(v.actual) : '？？';
 
     // 差距的文字與顏色狀態（顏色由 data-dir 控制：under／over = 橘、match = 綠，見 gauntlet.css）
     const diffText = r.querySelector('.g-diff-text')!;
     const hint = r.querySelector<HTMLElement>('.g-hint')!;
     const formula = r.querySelector<HTMLElement>('.g-formula')!;
     const abs = Math.abs(v.diff);
-    if (dir === 'match') {
+    if (dir === 'locked') {
+      diffText.textContent = SCAN_FIRST_TEXT;
+      hint.textContent = '';
+    } else if (dir === 'match') {
       diffText.innerHTML = '<b>符合！</b>';
       hint.textContent = '';
     } else if (dir === 'under') {
@@ -280,7 +297,7 @@ export class GauntletPanel {
     hint.hidden = !hint.textContent;
     // 手套 Lv3 的算式提示（差值為 0 時不顯示）
     formula.textContent =
-      v.formula && dir !== 'match' ? `${dir === 'under' ? '還差' : '多了'} ${abs}，${abs} ÷ 2 = ${abs / 2} 隻` : '';
+      v.formula && (dir === 'under' || dir === 'over') ? `${dir === 'under' ? '還差' : '多了'} ${abs}，${abs} ÷ 2 = ${abs / 2} 隻` : '';
     formula.hidden = !formula.textContent;
 
     this.btn.toBiped.classList.toggle('dim', !v.canToBiped);
@@ -332,7 +349,7 @@ export class GauntletPanel {
       return;
     }
     const dir = KEYS[e.code];
-    if (!dir || !this.canDeduce) return;
+    if (!dir || !this.canDeduce || this.locked) return;
     if ((dir === 'pairToBiped' || dir === 'pairToQuad') && this.btn[dir].classList.contains('hidden')) return;
     e.preventDefault();
     if (e.repeat || this.heldKey) return; // 連發由 RepeatTimer 處理，忽略系統的按鍵重複

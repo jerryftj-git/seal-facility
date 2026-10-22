@@ -4,10 +4,9 @@ import { SPECIES_ASSET, type AssetId } from '../assets/manifest';
 import { PLACEHOLDER_FEET } from '../assets/placeholders/creatures';
 import { applyMaterial, glowMaterial, hologramMaterial } from '../core/materials';
 import { PALETTE } from '../core/palette';
-import { CREATURE_DISPLAY_SCALE, CREATURE_FACING } from './SealPod';
+import { CREATURE_FACING, creatureScale } from './SealPod';
 
 const MORPH_TIME = 0.3;
-const HOLO_SCALE = CREATURE_DISPLAY_SCALE;
 /** 斜向面對鏡頭（3/4 側面），剪影好認、又不會和隔壁重疊 */
 const FACING = CREATURE_FACING;
 
@@ -45,8 +44,11 @@ export class HoloProjection {
   private readonly base: THREE.Mesh;
   private color = new THREE.Color(PALETTE.cyan);
   private opacity = 0;
+  /** 生物的顯示縮放（和真實生物一致；8 隻以上會小一點） */
+  private readonly scale: number;
 
   constructor(assets: AssetLoader, speciesIds: readonly string[], positions: readonly THREE.Vector3[], initial: readonly string[]) {
+    this.scale = creatureScale(positions.length);
     positions.forEach((pos, i) => {
       const root = new THREE.Group();
       root.position.copy(pos);
@@ -67,7 +69,7 @@ export class HoloProjection {
           dot.scale.setScalar(1.6);
           model.add(dot);
         }
-        model.scale.setScalar(HOLO_SCALE);
+        model.scale.setScalar(this.scale);
         model.visible = id === initial[i];
         model.renderOrder = 3;
         model.traverse((o) => (o.renderOrder = 3));
@@ -129,7 +131,8 @@ export class HoloProjection {
       const k = showingOld ? 1 - t * 2 : s.previous !== null ? (t - 0.5) * 2 : 1;
       const squash = 0.08 + 0.92 * k;
       const model = s.forms.get(visibleId)!;
-      model.scale.set(HOLO_SCALE * (1 + (1 - k) * 0.35), HOLO_SCALE * squash, HOLO_SCALE * (1 + (1 - k) * 0.35));
+      const sc = this.scale;
+      model.scale.set(sc * (1 + (1 - k) * 0.35), sc * squash, sc * (1 + (1 - k) * 0.35));
       const flash = t < 1 ? Math.sin(t * Math.PI) : 0;
       for (const m of s.materials) {
         m.uniforms.uTime.value = time;

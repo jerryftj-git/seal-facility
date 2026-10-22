@@ -9,7 +9,8 @@ export class Readout {
   private readonly canvas = document.createElement('canvas');
   private readonly ctx: CanvasRenderingContext2D;
   private readonly texture: THREE.CanvasTexture;
-  private value = 0;
+  /** null = 還不知道（顯示「？？」） */
+  private value: number | null = 0;
   private color = '#2ee6f0';
 
   constructor(
@@ -29,11 +30,11 @@ export class Readout {
     this.draw();
   }
 
-  get current(): number {
+  get current(): number | null {
     return this.value;
   }
 
-  set(value: number, color?: string): void {
+  set(value: number | null, color?: string): void {
     this.value = value;
     if (color) this.color = color;
     this.draw();
@@ -61,7 +62,7 @@ export class Readout {
     c.textBaseline = 'alphabetic';
     c.shadowColor = this.color;
     c.shadowBlur = 18;
-    c.fillText(String(this.value), W - 34, H - 30);
+    c.fillText(this.value === null ? '？？' : String(this.value), W - 34, H - 30);
     c.shadowBlur = 0;
     c.textAlign = 'left';
     this.texture.needsUpdate = true;

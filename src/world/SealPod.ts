@@ -10,6 +10,17 @@ const CYAN = '#2ee6f0';
 /** 艙內生物（全像投影與真實生物共用）的縮放，兩者大小一致才會「和投影一致」 */
 export const CREATURE_DISPLAY_SCALE = 0.85;
 
+/**
+ * 8 隻以上時的排法：排成一列（不前後交錯）、拉開到艙的兩端、整體縮小一點，
+ * 從推演鏡頭看 8 隻獵獸也不會重疊（用輪廓逐像素量過）。7 隻以下維持原本的排法。
+ */
+const CROWDED = { from: 8, halfSpan: 2.1, scale: 0.82 } as const;
+
+/** n 隻時每隻生物的顯示縮放（全像投影與真實生物共用） */
+export function creatureScale(n: number): number {
+  return n >= CROWDED.from ? CREATURE_DISPLAY_SCALE * CROWDED.scale : CREATURE_DISPLAY_SCALE;
+}
+
 /** 艙內生物的朝向：3/4 側面，剪影（腳數）好認，身長佔的寬度又不會太大 */
 export const CREATURE_FACING = Math.PI / 2 - 0.8;
 const GREEN = '#3dff8a';
@@ -23,15 +34,23 @@ export class SealPod {
   readonly readoutN = new Readout('看到的生物');
   readonly readoutL = new Readout('地上的接觸點');
   private readonly glass: THREE.Mesh | null;
-  private readonly light = new THREE.PointLight(PALETTE.cyan, 6, 6, 2);
+  /**
+   * 艙內燈光。本身不顯示（visible = false），由 LightPool 依玩家位置借一盞真的點光源照它的設定亮，
+   * 場景裡的光源數量才固定（光源數量一變，所有材質都要重新編譯 shader）。
+   */
+  readonly light = new THREE.PointLight(PALETTE.cyan, 6, 6, 2);
   private readonly creatures = new THREE.Group();
   private readonly start = new THREE.Vector3(1.85, 0.35, 0);
   private readonly end = new THREE.Vector3(-1.85, 0.35, 0);
   solved = false;
 
+  /**
+   * @param hideL 還沒掃描：地上的接觸點顯示「？？」
+   */
   constructor(
     private readonly assets: AssetLoader,
-    readings: { N: number; L: number },
+    private readonly readings: { N: number; L: number },
+    hideL = false,
   ) {
     this.object = assets.get('seal_pod').scene;
     this.glass = (this.object.getObjectByName('glass') as THREE.Mesh) ?? null;
@@ -51,9 +70,10 @@ export class SealPod {
     this.attach('readout_N', this.readoutN.mesh, -0.95);
     this.attach('readout_L', this.readoutL.mesh, 0.95);
     this.readoutN.set(readings.N, CYAN);
-    this.readoutL.set(readings.L, CYAN);
+    this.readoutL.set(hideL ? null : readings.L, CYAN);
 
     this.light.position.set(0, 2.1, 0.2);
+    this.light.visible = false;
     this.object.add(this.light, this.creatures);
   }
 
@@ -69,6 +89,12 @@ export class SealPod {
   /** 第 i 個 slot（共 n 個）在艙內的本地座標；index 0 在 slots_start 那端 */
   slotLocal(i: number, n: number): THREE.Vector3 {
     const t = n <= 1 ? 0.5 : i / (n - 1);
+    if (n >= CROWDED.from) {
+      // 一列排開，兩端拉到 ±halfSpan
+      const mid = this.start.clone().lerp(this.end, 0.5);
+      const half = this.start.clone().sub(mid).setLength(CROWDED.halfSpan);
+      return mid.clone().add(half).lerp(mid.clone().sub(half), t);
+    }
     const margin = n < 8 ? (8 - n) * 0.06 : 0;
     const a = this.start.clone().lerp(this.end, margin / 2);
     const b = this.end.clone().lerp(this.start, margin / 2);
@@ -98,7 +124,7 @@ export class SealPod {
       const c = this.assets.get(SPECIES_ASSET[id] ?? 'scout').scene;
       c.position.copy(this.slotLocal(i, slots.length));
       c.rotation.y = CREATURE_FACING + (Math.random() - 0.5) * 0.25;
-      c.scale.setScalar(CREATURE_DISPLAY_SCALE);
+      c.scale.setScalar(creatureScale(slots.length));
       this.creatures.add(c);
     });
     const mat = this.glass?.material as THREE.MeshStandardMaterial | undefined;
@@ -110,6 +136,54 @@ export class SealPod {
       }
       this.light.intensity = 6 + t * 10;
     });
+  }
+
+  /**
+   * 掃描地面：一道青色光線從艙的一端掃到另一端，同時「地上的接觸點」從 0 數到 L。
+   */
+  async scan(tweens: Tweens, duration: number): Promise<void> {
+    const half = Math.abs(this.start.x) + 0.6;
+    const mat = new THREE.MeshBasicMaterial({
+      color: PALETTE.cyan,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+      toneMapped: false,
+      side: THREE.DoubleSide,
+    });
+    const sheetMat = mat.clone();
+    sheetMat.opacity = 0.18;
+    const sweep = new THREE.Group();
+    // 地面上的亮線（沿艙的深度方向）＋一片淡淡的垂直光幕
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 1.3), mat);
+    line.rotation.x = -Math.PI / 2;
+    line.position.y = this.start.y + 0.01;
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1.3), sheetMat);
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = this.start.y + 0.005;
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.9), sheetMat);
+    sheet.rotation.y = Math.PI / 2;
+    sheet.position.y = this.start.y + 0.95;
+    sweep.add(line, glow, sheet);
+    sweep.traverse((o) => (o.renderOrder = 4));
+    this.object.add(sweep);
+    await tweens.to(duration, (t) => {
+      sweep.position.x = half - t * half * 2;
+      this.readoutL.set(Math.round(this.readings.L * t), CYAN);
+      mat.opacity = t < 0.9 ? 1 : (1 - t) * 10;
+      sheetMat.opacity = 0.18 * (t < 0.9 ? 1 : (1 - t) * 10);
+    });
+    this.readoutL.set(this.readings.L, CYAN);
+    this.object.remove(sweep);
+    sweep.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    mat.dispose();
+    sheetMat.dispose();
+  }
+
+  /** 已經掃描過（存檔）：直接顯示接觸點 */
+  showL(): void {
+    this.readoutL.set(this.readings.L, CYAN);
   }
 
   /** 解開後顯形的生物輕微晃動（時間停止時不呼叫） */

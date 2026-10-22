@@ -110,6 +110,13 @@ export class GameAudio {
     [523, 784, 1046, 1568].forEach((f, i) => this.tone(f, 0.7, { type: 'triangle', gain: 0.09, delay: 0.25 + i * 0.08 }));
   }
 
+  /** 掃描台掃描地面（約 1.5 秒）：上揚的掃描音＋細碎的雜訊，結尾一聲確認 */
+  scan(duration = 1.5): void {
+    this.tone(330, duration, { type: 'sawtooth', gain: 0.035, slideTo: 1320, attack: 0.05 });
+    this.noise(duration, { gain: 0.05, freq: 1200, sweepTo: 5000, q: 6 });
+    this.tone(1760, 0.18, { type: 'triangle', gain: 0.07, delay: duration });
+  }
+
   uiOpen(): void {
     this.tone(660, 0.15, { gain: 0.06, slideTo: 990 });
   }

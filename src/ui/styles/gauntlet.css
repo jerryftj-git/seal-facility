@@ -28,6 +28,16 @@
   --accent: var(--green);
 }
 
+/* 還沒掃描地面：差距區只顯示「先掃描地面才能推演」 */
+.gauntlet[data-dir='locked'] {
+  --accent: var(--text-dim);
+}
+
+.gauntlet[data-dir='locked'] .g-diff-text {
+  padding: 10px 0;
+  font-size: 16px;
+}
+
 /* 背景不透明一點：場景裡的燈條、管線不會從面板後面透出來擋到文字 */
 .gauntlet.holo {
   background: rgba(6, 16, 23, 0.93);

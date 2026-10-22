@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSave, loadSave, SAVE_CONFIG, writeSave } from '../../src/core/saveData';
+import {
+  betterGrade,
+  defaultSave,
+  levelSave,
+  loadSave,
+  recordLevelResult,
+  resetRun,
+  SAVE_CONFIG,
+  writeSave,
+} from '../../src/core/saveData';
 
 const memory = () => {
   const data = new Map<string, string>();
@@ -48,5 +57,60 @@ describe('存檔', () => {
     expect(loadSave(null)).toEqual(defaultSave());
     expect(loadSave(broken)).toEqual(defaultSave());
     expect(() => writeSave(defaultSave(), broken)).not.toThrow();
+  });
+
+  it('關卡進度：目前關卡、各關掃描、評級、本輪晶片寫入後讀回來一樣', () => {
+    const s = memory();
+    const d = defaultSave();
+    d.currentLevel = 2;
+    d.runChips = 3;
+    d.roomChips = { zone01: true, zone02: true };
+    levelSave(d, 2).scanned = true;
+    recordLevelResult(d, 1, 'A', 9);
+    writeSave(d, s);
+    expect(loadSave(s)).toEqual(d);
+  });
+
+  it('關卡進度的不合理資料會被修正', () => {
+    const s = memory();
+    s.setItem(
+      SAVE_CONFIG.storageKey,
+      JSON.stringify({ currentLevel: 7, runChips: -1, levels: { '1': { scanned: 'yes', lastGrade: 'Z', bestGrade: 'S', lastSteps: 4.7 }, x: {} } }),
+    );
+    const r = loadSave(s, 3, 2);
+    expect(r.currentLevel).toBe(2);
+    expect(r.runChips).toBe(0);
+    expect(r.levels).toEqual({ '1': { scanned: false, lastGrade: null, lastSteps: 4, bestGrade: 'S' } });
+  });
+
+  it('最佳評級只會被更好的評級覆蓋，最近一次每次都覆蓋', () => {
+    const d = defaultSave();
+    recordLevelResult(d, 1, 'A', 8);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'A', bestGrade: 'A', lastSteps: 8 });
+    recordLevelResult(d, 1, 'S', 4);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'S', bestGrade: 'S', lastSteps: 4 });
+    recordLevelResult(d, 1, 'B', 15);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'B', bestGrade: 'S', lastSteps: 15 });
+    expect(betterGrade(null, 'B')).toBe('B');
+    expect(betterGrade('A', 'B')).toBe('A');
+  });
+
+  it('重新開始：回第一關、清掉本輪晶片與掃描；晶片、手套、隱藏晶片、評級保留', () => {
+    const d = defaultSave();
+    d.chips = 5;
+    d.gloveLevel = 2;
+    d.currentLevel = 2;
+    d.runChips = 4;
+    d.roomChips = { zone02: true };
+    levelSave(d, 2).scanned = true;
+    recordLevelResult(d, 1, 'S', 4);
+    resetRun(d);
+    expect(d.currentLevel).toBe(1);
+    expect(d.runChips).toBe(0);
+    expect(levelSave(d, 2).scanned).toBe(false);
+    expect(d.chips).toBe(5);
+    expect(d.gloveLevel).toBe(2);
+    expect(d.roomChips).toEqual({ zone02: true });
+    expect(levelSave(d, 1).bestGrade).toBe('S');
   });
 });

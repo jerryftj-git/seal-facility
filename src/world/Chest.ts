@@ -11,7 +11,8 @@ export class Chest {
   opened = false;
   private mixer: THREE.AnimationMixer | null = null;
   private openClip: THREE.AnimationClip | null = null;
-  private readonly light = new THREE.PointLight(PALETTE.cyan, 3, 4, 2);
+  /** 不直接顯示，由 LightPool 借真的點光源照它的設定亮（見 SealPod.light） */
+  readonly light = new THREE.PointLight(PALETTE.cyan, 3, 4, 2);
 
   constructor(asset: LoadedAsset) {
     this.object = asset.scene;
@@ -27,6 +28,7 @@ export class Chest {
     this.chip.position.copy(anchor?.position ?? new THREE.Vector3(0, 0.5, 0));
     this.object.add(this.chip);
     this.light.position.set(0, 1.2, 0.6);
+    this.light.visible = false;
     this.object.add(this.light);
   }
 

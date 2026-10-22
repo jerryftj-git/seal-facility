@@ -1,5 +1,7 @@
 export interface Interactable {
-  id: 'pod' | 'chest' | 'chip';
+  id: 'pod' | 'chest' | 'chip' | 'scan';
+  /** 屬於第幾關（區段） */
+  level: number;
   /** 互動提示文字 */
   label: string;
   x: number;

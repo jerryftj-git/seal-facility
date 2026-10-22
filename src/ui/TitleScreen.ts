@@ -8,7 +8,10 @@ import './styles/screens.css';
 export class TitleScreen {
   private readonly root: HTMLElement;
 
-  constructor(parent: HTMLElement, introSeen: boolean, onStart: (playIntro: boolean) => void) {
+  /**
+   * @param best 各關最佳評級（例如 [['第一關', 'S'], ['第二關', 'A']]）；有的話在按鈕下方顯示一行小字
+   */
+  constructor(parent: HTMLElement, introSeen: boolean, onStart: (playIntro: boolean) => void, best: [string, string][] = []) {
     this.root = el(
       'div',
       'screen title-screen',
@@ -19,6 +22,7 @@ export class TitleScreen {
         <p class="flavor">廢棄研究設施深處，封印艙擋住了去路。</p>
         <button class="btn-primary" type="button">開始潛入</button>
         ${introSeen ? '<button class="btn-link" type="button">重看開場</button>' : ''}
+        ${best.length ? `<div class="title-best">最佳評級　${best.map(([n, g]) => `${n}<b>${g}</b>`).join('　')}</div>` : ''}
       </div>`,
     );
     parent.appendChild(this.root);

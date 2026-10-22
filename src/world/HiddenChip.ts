@@ -25,6 +25,8 @@ export class HiddenChip {
   readonly object = new THREE.Group();
   readonly position: THREE.Vector3;
   picked = false;
+  /** 目前閃爍的亮度（0..1），給牆上的光暈同步用 */
+  blink = 0;
   private readonly chip: THREE.Group;
   private readonly glow: THREE.Sprite;
   private burst: THREE.Points | null = null;
@@ -67,6 +69,7 @@ export class HiddenChip {
       this.glow.position.y = this.chip.position.y;
       // 微弱閃爍：大部分時間淡淡的，偶爾亮一下
       const blink = Math.pow(Math.max(0, Math.sin(time * 2.3)), 6);
+      this.blink = blink;
       (this.glow.material as THREE.SpriteMaterial).opacity = 0.35 + blink * 0.65;
       this.glow.scale.setScalar(0.55 + blink * 0.35);
     }
@@ -123,6 +126,25 @@ export class HiddenChip {
     this.picked = true;
     this.object.visible = false;
   }
+}
+
+/** 晶片照在牆上的淡淡光暈（加法混色、不受霧影響），亮度跟著晶片閃爍 */
+export function chipWallGlow(size: number): THREE.Mesh {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({
+      map: glowTexture(),
+      color: PALETTE.cyan,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+      toneMapped: false,
+    }),
+  );
+  m.name = 'chip_wall_glow';
+  return m;
 }
 
 /** 補給箱：和走廊同風格的簡單方塊（深灰金屬＋青色細邊） */

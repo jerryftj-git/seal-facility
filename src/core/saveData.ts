@@ -16,8 +16,14 @@ export interface SaveData {
   chips: number;
   /** 推演手套等級（1～3） */
   gloveLevel: number;
-  /** 每個房間的隱藏晶片是否已拾取（key = 房間 id） */
+  /** 每個房間的隱藏晶片是否已拾取（key = 房間 id，見 src/levels/levels.ts 的 roomId） */
   roomChips: Record<string, boolean>;
+  /** 目前所在的關卡：重新整理後從這一關的走廊入口開始 */
+  currentLevel: number;
+  /** 這一輪（從第一關開始算）拿到的晶片，給「區域完成」結算用 */
+  runChips: number;
+  /** 各關的進度與評級（key = 關卡編號） */
+  levels: Record<string, LevelSave>;
   /** 一次性提示 */
   flags: {
     introSeen: boolean;
@@ -26,6 +32,52 @@ export interface SaveData {
     /** 第一次達到升級門檻時的晶片圖示閃爍已顯示 */
     upgradeReadyBlink: boolean;
   };
+}
+
+export type SavedGrade = 'S' | 'A' | 'B';
+
+export interface LevelSave {
+  /** 掃描台已掃描（這一輪有效；重新開始時清掉） */
+  scanned: boolean;
+  /** 最近一次的評級與步數 */
+  lastGrade: SavedGrade | null;
+  lastSteps: number | null;
+  /** 最佳評級（只會被更好的評級覆蓋） */
+  bestGrade: SavedGrade | null;
+}
+
+const GRADE_RANK: Record<SavedGrade, number> = { S: 3, A: 2, B: 1 };
+
+/** 兩個評級取比較好的 */
+export function betterGrade(a: SavedGrade | null, b: SavedGrade | null): SavedGrade | null {
+  if (!a) return b;
+  if (!b) return a;
+  return GRADE_RANK[b] > GRADE_RANK[a] ? b : a;
+}
+
+export function defaultLevelSave(): LevelSave {
+  return { scanned: false, lastGrade: null, lastSteps: null, bestGrade: null };
+}
+
+/** 取得（必要時建立）某一關的存檔 */
+export function levelSave(data: SaveData, level: number): LevelSave {
+  return (data.levels[String(level)] ??= defaultLevelSave());
+}
+
+/** 記錄一關的結果：最近一次直接覆蓋，最佳只在更好時覆蓋 */
+export function recordLevelResult(data: SaveData, level: number, grade: SavedGrade, steps: number): LevelSave {
+  const ls = levelSave(data, level);
+  ls.lastGrade = grade;
+  ls.lastSteps = steps;
+  ls.bestGrade = betterGrade(ls.bestGrade, grade);
+  return ls;
+}
+
+/** 開始新的一輪（從第一關）：晶片、手套、隱藏晶片、評級保留；本輪進度清掉 */
+export function resetRun(data: SaveData): void {
+  data.currentLevel = 1;
+  data.runChips = 0;
+  for (const ls of Object.values(data.levels)) ls.scanned = false;
 }
 
 export type KV = Pick<Storage, 'getItem' | 'setItem'>;
@@ -44,15 +96,20 @@ export function defaultSave(): SaveData {
     chips: 0,
     gloveLevel: 1,
     roomChips: {},
+    currentLevel: 1,
+    runChips: 0,
+    levels: {},
     flags: { introSeen: false, firstChipTip: false, upgradeReadyBlink: false },
   };
 }
+
+const isGrade = (v: unknown): v is SavedGrade => v === 'S' || v === 'A' || v === 'B';
 
 const int = (v: unknown, lo: number, hi: number, fallback: number) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : fallback;
 
 /** 讀存檔；資料損壞或欄位缺漏時用預設值補齊 */
-export function loadSave(storage: KV | null = defaultStorage(), maxGloveLevel = 3): SaveData {
+export function loadSave(storage: KV | null = defaultStorage(), maxGloveLevel = 3, maxLevel = 99): SaveData {
   const s = defaultSave();
   let raw: unknown = null;
   try {
@@ -67,6 +124,20 @@ export function loadSave(storage: KV | null = defaultStorage(), maxGloveLevel = 
     s.gloveLevel = int(r.gloveLevel, 1, maxGloveLevel, 1);
     if (r.roomChips && typeof r.roomChips === 'object') {
       for (const [k, v] of Object.entries(r.roomChips)) if (v === true) s.roomChips[k] = true;
+    }
+    s.currentLevel = int(r.currentLevel, 1, maxLevel, 1);
+    s.runChips = int(r.runChips, 0, 9999, 0);
+    if (r.levels && typeof r.levels === 'object') {
+      for (const [k, v] of Object.entries(r.levels)) {
+        if (!/^\d+$/.test(k) || !v || typeof v !== 'object') continue;
+        const lv = v as Partial<LevelSave>;
+        s.levels[k] = {
+          scanned: lv.scanned === true,
+          lastGrade: isGrade(lv.lastGrade) ? lv.lastGrade : null,
+          lastSteps: typeof lv.lastSteps === 'number' ? int(lv.lastSteps, 0, 99999, 0) : null,
+          bestGrade: isGrade(lv.bestGrade) ? lv.bestGrade : null,
+        };
+      }
     }
     const f = (r.flags ?? {}) as Partial<SaveData['flags']>;
     s.flags.introSeen = f.introSeen === true;

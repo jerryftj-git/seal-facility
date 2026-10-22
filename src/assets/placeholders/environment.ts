@@ -9,6 +9,11 @@ import { box, cached, cyl, mergeParts, type Part } from './build';
 
 export const CORRIDOR = { width: 6, height: 4, length: 4 } as const;
 
+/** 走廊發光線條的預設顏色（第一關） */
+export const ACCENT_DEFAULT = 0x2a8fa3;
+/** 走廊發光線條的材質名稱：換色時找這個名字（之後換成 glb 走廊，線條材質也命名為 accent） */
+export const ACCENT_NAME = 'accent';
+
 let mats: Record<'wall' | 'floor' | 'trim' | 'glow' | 'glowDim' | 'warn', THREE.Material> | null = null;
 function m() {
   mats ??= {
@@ -16,7 +21,7 @@ function m() {
     floor: new THREE.MeshStandardMaterial({ color: PALETTE.floor, roughness: 0.6, metalness: 0.2 }),
     trim: new THREE.MeshStandardMaterial({ color: PALETTE.trim, roughness: 0.6, metalness: 0.6 }),
     glow: glowMaterial(PALETTE.cyanSoft),
-    glowDim: glowMaterial(0x2a8fa3),
+    glowDim: glowMaterial(ACCENT_DEFAULT),
     warn: glowMaterial(PALETTE.warning),
   };
   return mats;
@@ -69,8 +74,35 @@ export function buildCorridorStraight(): THREE.Object3D {
   );
   const root = new THREE.Group();
   root.name = 'corridor_straight';
-  root.add(mesh(structure, m().wall), mesh(floor, m().floor), mesh(glow, m().glowDim));
+  root.add(mesh(structure, m().wall), mesh(floor, m().floor), mesh(glow, accentMaterial(ACCENT_DEFAULT), ACCENT_NAME));
   return root;
+}
+
+const accentMats = new Map<number, THREE.Material>();
+
+/** 走廊線條材質（每種顏色共用一份）；預設色就是原本的 glowDim */
+export function accentMaterial(color: number): THREE.Material {
+  let mat = accentMats.get(color);
+  if (!mat) {
+    mat = color === ACCENT_DEFAULT ? m().glowDim.clone() : glowMaterial(color);
+    mat.name = ACCENT_NAME;
+    accentMats.set(color, mat);
+  }
+  return mat;
+}
+
+/** 把物件裡所有走廊線條（材質名 accent）換成指定顏色 */
+export function recolorAccent(root: THREE.Object3D, color: number): void {
+  const mat = accentMaterial(color);
+  root.traverse((o) => {
+    const me = o as THREE.Mesh;
+    if (me.isMesh && !Array.isArray(me.material) && me.material.name === ACCENT_NAME) me.material = mat;
+  });
+}
+
+/** 地圖用：牆面材質（U 型死角的短牆跟走廊同一種） */
+export function wallMaterial(): THREE.Material {
+  return m().wall;
 }
 
 /** 走廊端牆：牆面在 z = 0，朝 +Z */

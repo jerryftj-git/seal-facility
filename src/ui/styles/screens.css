@@ -138,3 +138,72 @@
     transform: scale(1);
   }
 }
+
+.screen-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.btn-secondary {
+  margin-top: 8px;
+  padding: 12px 26px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  background: rgba(46, 230, 240, 0.06);
+  border: 1px solid rgba(46, 230, 240, 0.55);
+  border-radius: 6px;
+}
+
+.btn-secondary:hover {
+  background: rgba(46, 230, 240, 0.14);
+}
+
+/* 「本次 A／最佳 S」 */
+.grade-pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font);
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.grade-pair i {
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.g-mini {
+  font-family: var(--mono);
+  font-size: 26px;
+  color: var(--text);
+}
+
+.g-mini[data-grade='S'] {
+  color: var(--green);
+}
+
+.g-mini[data-grade='A'] {
+  color: var(--cyan);
+}
+
+.g-mini[data-grade='B'] {
+  color: var(--under);
+}
+
+/* 標題畫面：各關最佳評級的小字 */
+.title-best {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.title-best b {
+  margin-left: 4px;
+  font-family: var(--mono);
+}

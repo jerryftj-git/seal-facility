@@ -191,7 +191,12 @@ export class RimLight {
 }
 
 /** 從走廊拍一張環境貼圖（只在建關卡時做一次），給主角的反射用 */
-export function captureEnvMap(renderer: THREE.WebGLRenderer, scene: THREE.Scene, hide: THREE.Object3D[]): THREE.WebGLRenderTarget | null {
+export function captureEnvMap(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  hide: THREE.Object3D[],
+  at: THREE.Vector3 = AGENT_LOOK.envMap.position,
+): THREE.WebGLRenderTarget | null {
   if (!AGENT_LOOK.envMap.enabled) return null;
   const pmrem = new THREE.PMREMGenerator(renderer);
   // 加法混色的特效（天花板光錐、全像投影、灰塵）拍進環境貼圖會產生無效值（NaN），
@@ -204,7 +209,7 @@ export function captureEnvMap(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   });
   const vis = hide.map((o) => o.visible);
   hide.forEach((o) => (o.visible = false));
-  const p = AGENT_LOOK.envMap.position;
+  const p = at;
   // fromScene 從原點拍，所以暫時把整個場景平移，讓拍攝點落在走廊裡
   scene.position.set(-p.x, -p.y, -p.z);
   scene.updateMatrixWorld(true);
