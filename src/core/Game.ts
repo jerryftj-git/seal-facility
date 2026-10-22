@@ -218,6 +218,8 @@ export class Game {
     this.hud.setVisible(true);
     this.setObjective(this.objective);
     this.hud.showHints(this.input.mode);
+    // 從存檔的關卡繼續時說一聲（第二段的入口和第一關的出生點長得很像）
+    if (this.cur !== AREA.levels[0]) showToast(this.ui, `從${levelLabel(this.cur)}繼續`, 'tip');
   }
 
   /** 右上角「？」：遊戲中重看任務簡報 */
@@ -327,6 +329,9 @@ export class Game {
     if (next === undefined) return;
     this.cur = next;
     this.levelChips = 0;
+    // 按下「繼續前進」就存檔：還沒走過隔門就重新整理，也會從下一段的入口開始
+    this.save.currentLevel = next;
+    writeSave(this.save);
     // 題目是開局時建的，手套可能已經升級：換成目前的工具
     this.deduction = setTools(this.deduction, this.gloveTools());
     this.enterExplore();
