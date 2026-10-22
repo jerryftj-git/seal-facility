@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from '../core/Collision';
 import type { LoadedAsset } from '../assets/AssetLoader';
+import { AGENT_LOOK, agentStandardMaterial, makeBlobShadow } from '../core/agentLook';
 import { softToonMaterial } from '../core/materials';
 import { blendToward, findClipIndex, locomotionMix, RUN_SPEED } from './locomotion';
 
@@ -16,16 +17,16 @@ export const PLAYER_RADIUS = 0.35;
 const AGENT_GLB_YAW = Math.PI;
 
 /**
- * glb 角色換成柔和的卡通著色（softToonMaterial）：三段明暗、黑色抬成藍灰、白色壓成奶油白、暖色邊緣光，
- * 和暗走廊的對比比較柔和，暗處也看得清楚。
+ * glb 角色的材質：預設是受場景光、霧、環境反射影響的 PBR（AGENT_LOOK.style = 'standard'），
+ * 也可以切回先前的柔和卡通著色（'toon'）。參數都在 src/core/agentLook.ts。
  */
-function softenLook(root: THREE.Object3D): void {
+function applyLook(root: THREE.Object3D): void {
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.material = Array.isArray(mesh.material)
-      ? mesh.material.map((m) => softToonMaterial(m))
-      : softToonMaterial(mesh.material);
+    const conv = (m: THREE.Material) =>
+      AGENT_LOOK.style === 'toon' ? softToonMaterial(m) : agentStandardMaterial(m, null);
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(conv) : conv(mesh.material);
   });
 }
 
@@ -47,9 +48,10 @@ export class PlayerController {
     this.model = asset.scene;
     if (asset.source === 'glb') {
       this.model.rotation.y = AGENT_GLB_YAW;
-      softenLook(this.model);
+      applyLook(this.model);
     }
     this.object.add(this.model);
+    if (AGENT_LOOK.blobShadow.enabled) this.object.add(makeBlobShadow());
     this.setupAnimations(asset.animations);
   }
 
@@ -74,6 +76,27 @@ export class PlayerController {
       a.setLoop(THREE.LoopRepeat, Infinity);
       a.play();
     }
+  }
+
+  /** 主角模型（不含腳下陰影），拍環境貼圖時要暫時藏起來 */
+  get modelObject(): THREE.Object3D {
+    return this.model;
+  }
+
+  /** 套用走廊拍下來的環境貼圖（只有 PBR 材質會用到） */
+  setEnvMap(tex: THREE.Texture | null): void {
+    this.model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const std = m as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial) {
+          std.envMap = tex;
+          std.envMapIntensity = AGENT_LOOK.material.envMapIntensity;
+          std.needsUpdate = true;
+        }
+      }
+    });
   }
 
   get position(): THREE.Vector3 {

@@ -30,6 +30,8 @@ import { ResultScreen } from '../ui/ResultScreen';
 import { TitleScreen } from '../ui/TitleScreen';
 import { TouchControls } from '../ui/TouchControls';
 import { GameAudio } from './Audio';
+import { AGENT_LOOK, captureEnvMap, RimLight } from './agentLook';
+import { PostFX } from './PostFX';
 import { nearestInteractable, type Interactable } from './Interactables';
 import { LAYOUT, Level } from './Level';
 import { Loop } from './Loop';
@@ -80,6 +82,9 @@ export class Game {
   private followPose: CameraPose | null = null;
   private objective: Objective = 'pod';
   private readonly waypoint = new Waypoint();
+  private readonly rim = new RimLight();
+  private envTarget: THREE.WebGLRenderTarget | null = null;
+  private readonly post: PostFX;
 
   constructor(container: HTMLElement) {
     this.input = new Input(detectInitialMode());
@@ -106,7 +111,8 @@ export class Game {
     this.scene.background = new THREE.Color(PALETTE.background);
     this.scene.fog = new THREE.FogExp2(PALETTE.fog, 0.06);
 
-    this.scene.add(this.waypoint.object);
+    this.scene.add(this.waypoint.object, this.rim.light);
+    this.post = new PostFX(this.renderer, this.scene, this.camera);
     this.applyMode(this.input.mode);
     this.input.onModeChange((m) => this.applyMode(m));
     window.addEventListener('pointerdown', (e) => {
@@ -193,6 +199,10 @@ export class Game {
     this.player = new PlayerController(this.assets.get('agent'));
     this.player.place(LAYOUT.spawn.x, LAYOUT.spawn.z, LAYOUT.spawn.facing);
     this.scene.add(this.player.object);
+    // 從走廊拍環境貼圖給主角反射用（拍的時候藏起主角、標記、邊緣光）
+    this.envTarget?.dispose();
+    this.envTarget = captureEnvMap(this.renderer, this.scene, [this.player.object, this.waypoint.object]);
+    this.player.setEnvMap(this.envTarget?.texture ?? null);
     this.tpc.yaw = 0;
     this.tpc.pitch = 0.28;
     this.rig.focus = null;
@@ -417,7 +427,8 @@ export class Game {
     this.player.object.visible = this.rig.weight < 0.5 || !this.rig.focus;
     this.followPose = this.tpc.pose(this.player.position, this.level.world, this.level.ceiling, dt);
     this.rig.apply(this.followPose);
-    this.renderer.render(this.scene, this.camera);
+    this.rim.update(this.player.position, this.camera, this.player.object.visible);
+    this.post.render();
     this.fps?.tick(this.renderer.info.render);
   }
 
@@ -442,6 +453,7 @@ export class Game {
 
   private applyMode(mode: InputMode): void {
     document.body.dataset.mode = mode;
+    this.post?.setEnabled(mode === 'touch' ? AGENT_LOOK.ao.touch : AGENT_LOOK.ao.desktop);
     if (this.state !== 'loading' && this.state !== 'title') this.setObjective(this.objective);
     if (mode === 'touch') this.kbm.exitLock();
     this.syncControls();
@@ -465,6 +477,7 @@ export class Game {
 
   private onResize(): void {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.post.setSize(window.innerWidth, window.innerHeight);
     if (this.state === 'deduction') {
       this.panel.relayout();
       requestAnimationFrame(() => {

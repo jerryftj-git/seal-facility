@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from '../core/Collision';
+import { AGENT_LOOK } from '../core/agentLook';
 
 export interface CameraPose {
   position: THREE.Vector3;
@@ -7,7 +8,8 @@ export interface CameraPose {
   fov: number;
 }
 
-const DIST = 3.6;
+
+const DIST = AGENT_LOOK.camera.distance;
 const HEIGHT = 1.55;
 const MIN_PITCH = -0.55;
 const MAX_PITCH = 0.9;

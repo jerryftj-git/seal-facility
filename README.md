@@ -177,6 +177,11 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 想手動在 Blender 裡做也可以，重點是：三個動作命名成 `idle`／`walk`／`run`、去掉 Hips 的水平位移、角色繞 Z 軸轉 180°（從前視圖 Numpad 1 看到背面）、匯出 glTF Binary 並帶上動畫。
 
+### 主角外觀參數（和場景的融合）
+
+主角的材質色調、青色邊緣光、腳下陰影、環境反射、SSAO、鏡頭距離都集中在 `src/core/agentLook.ts` 的 `AGENT_LOOK`，
+改數字重新整理就能看到。`style: 'toon'` 可以切回柔和卡通著色。
+
 ### 注意事項
 
 - **碰撞不讀模型**：走廊範圍、艙、門、寶箱的碰撞框寫在 `src/core/Level.ts`（`LAYOUT` 和 `world.add(...)`）。
