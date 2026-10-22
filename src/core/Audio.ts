@@ -1,4 +1,13 @@
 /**
+ * 轉換音效的音高：**只**由「預測觸地」決定（QUESTIONS Q2）。
+ * 每 +2 受力點升一個半音，等差的變化聽起來也是等距的。
+ * 刻意不接受差值或答案當參數——絕不能做出「越接近答案越高音」的效果。
+ */
+export function morphFrequency(predicted: number): number {
+  return 220 * 2 ** (predicted / 24);
+}
+
+/**
  * Web Audio 合成音效，不需要外部檔案。iOS 規定要在使用者手勢裡 unlock()。
  */
 export class GameAudio {
@@ -62,12 +71,9 @@ export class GameAudio {
     src.start(t0);
   }
 
-  /**
-   * 轉換一隻生物：轉四足是上揚音、轉雙足是下降音。
-   * 音高刻意固定，不跟著預測值變化（那會變成額外的數值線索，見 QUESTIONS.md Q2）。
-   */
-  morph(up: boolean): void {
-    const f = up ? 420 : 380;
+  /** 轉換一隻生物：音高跟著新的預測值，轉四足帶一點上揚、轉雙足帶一點下降 */
+  morph(predicted: number, up: boolean): void {
+    const f = morphFrequency(predicted);
     this.tone(f, 0.12, { type: 'square', gain: 0.05, slideTo: up ? f * 1.25 : f * 0.8 });
     this.tone(f * 2, 0.08, { type: 'sine', gain: 0.05 });
   }

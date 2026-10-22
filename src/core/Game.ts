@@ -261,7 +261,8 @@ export class Game {
     if (r.event === 'locked') return false;
     this.deduction = r.state;
     r.slots.forEach((slot) => this.level.holo.morph(slot, to));
-    this.audio.morph(dir === 'toQuad');
+    // 音高只綁預測值（不可以傳差值或與答案的距離）
+    this.audio.morph(r.state.predicted, dir === 'toQuad');
     this.panel.render(this.panelView());
     this.panel.pulse();
     if (r.event === 'solved') {

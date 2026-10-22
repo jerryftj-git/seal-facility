@@ -10,13 +10,8 @@ const HOLO_SCALE = 0.72;
 /** 斜向面對鏡頭（3/4 側面），剪影好認、又不會和隔壁重疊 */
 const FACING = Math.PI / 2 - 0.65;
 
+/** 觸地點發光標記：每隻生物腳下的受力點，是題目的物理事實（QUESTIONS Q1 決定開啟） */
 let footGeo: THREE.CircleGeometry | null = null;
-
-/**
- * 觸地點發光標記：可能影響學習效果（見 QUESTIONS.md），預設關閉。
- * 網址加上 ?feet=1 可以預覽。
- */
-export const SHOW_FOOT_MARKERS = new URLSearchParams(location.search).get('feet') === '1';
 
 /** 找出模型的觸地點：glb 用 foot* 節點，佔位模型用預設座標 */
 function footPoints(model: THREE.Object3D, speciesId: string): THREE.Vector3[] {
@@ -60,7 +55,7 @@ export class HoloProjection {
       for (const id of speciesIds) {
         const model = assets.get((SPECIES_ASSET[id] ?? 'scout') as AssetId).scene;
         const mat = hologramMaterial(PALETTE.cyan);
-        const feet = SHOW_FOOT_MARKERS ? footPoints(model, id) : [];
+        const feet = footPoints(model, id);
         applyMaterial(model, mat);
         // 每個觸地點一個發光小圓
         footGeo ??= new THREE.CircleGeometry(0.05, 12);
