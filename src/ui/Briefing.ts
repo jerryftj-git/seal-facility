@@ -21,7 +21,7 @@ export function showBriefing(parent: HTMLElement, mode: InputMode): Promise<void
       <h2>任務簡報：回收資料晶片</h2>
       <ol class="brief-steps">
         <li><i>1</i><div><b>走到封印艙</b><small>跟著發光的 ◆ 標記走，靠近後按 ${interact} 打開推演手套。</small></div></li>
-        <li><i>2</i><div><b>解開封印</b><small>轉換艙裡生物的樣子，讓算出來的腳印和地上的腳印一樣多，大門就會打開。</small></div></li>
+        <li><i>2</i><div><b>解開封印</b><small>把艙裡的偵察體變成獵獸，讓算出來的接觸點達到地上的接觸點，才能開啟大門。</small></div></li>
         <li><i>3</i><div><b>拿到資料晶片</b><small>穿過大門，打開走廊盡頭的寶箱。</small></div></li>
       </ol>
       <div class="brief-controls">${controls}</div>

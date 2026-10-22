@@ -21,7 +21,7 @@ const GREEN = '#3dff8a';
 export class SealPod {
   readonly object: THREE.Object3D;
   readonly readoutN = new Readout('看到的生物');
-  readonly readoutL = new Readout('地上的腳印');
+  readonly readoutL = new Readout('地上的接觸點');
   private readonly glass: THREE.Mesh | null;
   private readonly light = new THREE.PointLight(PALETTE.cyan, 6, 6, 2);
   private readonly creatures = new THREE.Group();

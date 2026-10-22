@@ -295,7 +295,8 @@
 
 .g-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 兩顆按鈕固定等寬（不讓比較長的文字把一邊撐寬） */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -303,9 +304,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 64px;
-  padding: 10px;
+  padding: 10px 8px;
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
@@ -338,6 +339,7 @@
   flex-direction: column;
   align-items: center;
   line-height: 1.3;
+  font-size: 15px;
 }
 
 .g-btn-label > span {

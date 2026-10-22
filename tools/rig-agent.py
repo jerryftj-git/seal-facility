@@ -168,6 +168,79 @@ def bones_from(m):
     return bones
 
 
+def split_hand_leg_contact(ob, m):
+    """AI 生成時，下垂的手常和腰側／槍套黏成同一塊網格，自動權重把交界的頂點一半給手、一半給大腿，
+    跑步時手往前、腿往後，中間被拉成一條帶子。
+    做法（對應技能的「把道具和身體黏住的面切開」）：
+      1. 腕部以下、同時有手臂和腿／骨盆權重的「面」，依頂點多數決歸給手或腿
+      2. 沿著手的面和腿的面之間的邊切開（交界頂點複製成兩份）
+      3. 手那一側的頂點只跟手臂骨、腿那一側的頂點只跟腿／骨盆骨
+    試過的錯誤做法：只改權重不切開（交界仍相連，撕開 66 cm）；切「手頂點和腿頂點之間的邊」（邊本身還連著，60 cm）。"""
+    import bmesh
+    k = m['H'] / 2.02
+    zmax = m['wrist'].z + 0.05 * k
+    names = {g.index: g.name for g in ob.vertex_groups}
+    idx = {g.name: g.index for g in ob.vertex_groups}
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    dl = bm.verts.layers.deform.active
+
+    def sets(s):
+        return {f'hand.{s}', f'forearm.{s}', f'upper_arm.{s}'}, {f'thigh.{s}', f'shin.{s}', 'hips'}
+
+    def kind(v):
+        if v.co.z > zmax:
+            return None
+        arm, leg = sets('L' if v.co.x > 0 else 'R')
+        w = v[dl]
+        wa = sum(w[i] for i in w.keys() if names[i] in arm)
+        wl = sum(w[i] for i in w.keys() if names[i] in leg)
+        if wa < 0.05 and wl < 0.05:
+            return None
+        return ('arm' if wa >= wl else 'leg'), wa > 0.05 and wl > 0.05
+
+    vk = {v.index: kind(v) for v in bm.verts}
+    face_kind = {}
+    for f in bm.faces:
+        ks = [vk[v.index] for v in f.verts if vk[v.index]]
+        if not ks or not any(mixed for _, mixed in ks) and len({c for c, _ in ks}) < 2:
+            continue
+        na = sum(1 for c, _ in ks if c == 'arm')
+        face_kind[f] = 'arm' if na * 2 >= len(ks) else 'leg'
+    # 交界：兩側面的歸屬不同
+    cut = [e for e in bm.edges if len(e.link_faces) == 2 and all(fc in face_kind for fc in e.link_faces)
+           and face_kind[e.link_faces[0]] != face_kind[e.link_faces[1]]]
+    # 也要切開「歸屬面」和「沒歸屬但屬於另一邊的面」之間的邊
+    if cut:
+        bmesh.ops.split_edges(bm, edges=cut)
+    fixed = 0
+    for f, kd in face_kind.items():
+        if not f.is_valid:
+            continue
+        for v in f.verts:
+            if v.co.z > zmax:
+                continue
+            s = 'L' if v.co.x > 0 else 'R'
+            arm, leg = sets(s)
+            drop = leg if kd == 'arm' else arm
+            w = v[dl]
+            if not any(names[i] in drop for i in w.keys()):
+                continue
+            for i in list(w.keys()):
+                if names[i] in drop:
+                    del w[i]
+            if not w.keys():
+                w[idx[f'hand.{s}' if kd == 'arm' else f'thigh.{s}']] = 1.0
+            tot = sum(w.values()) or 1.0
+            for i in list(w.keys()):
+                w[i] = w[i] / tot
+            fixed += 1
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+    print(f'[rig-agent] 手和腰／槍套黏住的地方：{len(face_kind)} 個面分邊、切開 {len(cut)} 條交界邊、{fixed} 個頂點權重改成只跟一邊')
+
+
 def main():
     argv = sys.argv[sys.argv.index('--') + 1:]
     src, out = argv[0], argv[1]
@@ -186,6 +259,7 @@ def main():
     ob.name = 'agent'
     arm = bc.make_armature('agent')
     rg.skin(ob, arm)
+    split_hand_leg_contact(ob, m)
     if m['fused']:
         # 不要硬切權重（試過：把腰側的手臂權重拿掉，手掌和腰黏住的地方反而被撕開 66 cm）。
         # 改在重定向時用 --arm-swing 減少擺手幅度。

@@ -95,14 +95,14 @@ npm run dev
 
 ### 探員模型規格（含骨架動畫）
 
-目前的探員是機器盔甲造型，從概念圖 `art/concepts/sheets/agent_robot_turnaround.webp` 用 AI 生成，
-動作是 Mixamo 的 Standard Walk／Standard Run 重定向上去的（流程見下方「從概念圖做出探員」）。
-對照圖：`art/concepts/agent_robot_compare.png`。
+目前的主角是「護衛機器人」，從設計圖 `art/concepts/sheets/agent_ai_robot_sheet.webp` 的正面用 AI 生成，
+動作是 Mixamo 的 Standard Walk（走路）與 Running（跑步）重定向上去的（流程見下方「從概念圖做出探員」）。
 
 舊版本備份在 `art/backup/`，複製回 `public/models/agent.glb` 就能換回去：
 
 | 檔案 | 造型 | `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` |
 |---|---|---|
+| `agent_robot_orange.glb` | 黑白橘機器盔甲（Standard Run） | 1.25／3.52 |
 | `agent_human.glb` | 真人探員（墨鏡、深藍戰鬥服） | 1.25／3.52 |
 | `agent_mixamo_beta.glb` | Mixamo Beta 人偶 | 1.56／4.4 |
 

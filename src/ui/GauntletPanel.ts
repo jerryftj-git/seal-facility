@@ -26,13 +26,13 @@ export interface PanelCallbacks {
 }
 
 /**
- * 「每把一隻改成四隻腳，腳印 +2」提示句與按鈕上的 (+2)／(−2)。
+ * 「提示：把偵察體變成獵獸，每變一隻接觸點 +2」提示句。
  * 注意：原始規格是「不顯示每換一隻差 2 之類的提示，讓玩家自己發現」；2026-10-22 使用者要求加上。
- * 改成 false 就同時拿掉提示句與按鈕上的數字。
+ * 改成 false 就拿掉提示句。
  */
 export const SHOW_STEP_HINT = true;
 
-const GOAL_TEXT = '目標：讓算出來的腳印和地上的腳印一樣多';
+const GOAL_TEXT = '目標：算出來的接觸點要達到地上的接觸點，才能開啟大門';
 
 const KEYS: Record<string, ConvertDir> = {
   KeyA: 'toBiped',
@@ -68,13 +68,13 @@ export class GauntletPanel {
         <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四隻腳</small></span><b></b></span>
       </div>
       <div class="g-bars">
-        <div class="g-row act"><label>地上的腳印</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
+        <div class="g-row act"><label>地上的接觸點</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
         <div class="g-row pred"><label>照你的猜法算出來</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
       </div>
       <div class="g-diff"><span class="g-diff-text"></span><small class="g-hint"></small></div>
       <div class="g-buttons">
-        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>把一隻改回</span><span>兩隻腳${SHOW_STEP_HINT ? ' (−2)' : ''}</span></span><kbd class="desktop-only">A</kbd></button>
-        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>把一隻改成</span><span>四隻腳${SHOW_STEP_HINT ? ' (+2)' : ''}</span></span><span class="g-btn-arrow">▶</span></button>
+        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>把一隻獵獸</span><span>變回偵察體</span></span><kbd class="desktop-only">A</kbd></button>
+        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>把一隻偵察體</span><span>變為獵獸</span></span><span class="g-btn-arrow">▶</span></button>
       </div>`,
     );
     parent.appendChild(this.root);
@@ -189,11 +189,11 @@ export class GauntletPanel {
       diffText.innerHTML = '<b>符合！</b>';
       hint.textContent = '';
     } else if (dir === 'under') {
-      diffText.innerHTML = `還差 <b>${v.diff}</b> 個腳印`;
-      hint.textContent = SHOW_STEP_HINT ? '每把一隻改成四隻腳，腳印 +2' : '';
+      diffText.innerHTML = `還差 <b>${v.diff}</b> 個接觸點`;
+      hint.textContent = SHOW_STEP_HINT ? '提示：把偵察體變成獵獸，每變一隻接觸點 +2' : '';
     } else {
-      diffText.innerHTML = `多了 <b>${-v.diff}</b> 個腳印`;
-      hint.textContent = SHOW_STEP_HINT ? '每把一隻改回兩隻腳，腳印 −2' : '';
+      diffText.innerHTML = `多了 <b>${-v.diff}</b> 個接觸點`;
+      hint.textContent = SHOW_STEP_HINT ? '提示：把獵獸變回偵察體，每變一隻接觸點 −2' : '';
     }
     hint.hidden = !hint.textContent;
 
