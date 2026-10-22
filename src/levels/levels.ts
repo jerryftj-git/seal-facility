@@ -115,6 +115,19 @@ export function levelAnswer(def: Pick<LevelDef, 'creatures' | 'contactPoints'>):
   return { [SCOUT.id]: scout, [HUNTER.id]: hunter };
 }
 
+/**
+ * 依「生物數＋地上的接觸點」建題目（答錯換題後存的是新的 L）。
+ * L 不合理（存檔被改壞、或生物數不對）就回傳 null，呼叫端改用關卡資料原本的題目。
+ */
+export function puzzleWithL(def: LevelDef, contactPoints: number): Puzzle | null {
+  try {
+    const answer = levelAnswer({ creatures: def.creatures, contactPoints });
+    return { species: PHASE1_SPECIES, modifiers: [], answer, readings: computeReadings(PHASE1_SPECIES, answer) };
+  } catch {
+    return null;
+  }
+}
+
 /** 依關卡資料出題（固定題目或隨機產題） */
 export function puzzleForLevel(def: LevelDef, rng: Rng): Puzzle {
   if (def.randomPuzzle) return generatePuzzle(PHASE1_CONFIG, rng);

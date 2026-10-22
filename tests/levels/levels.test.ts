@@ -1,22 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, LEVELS, levelAnswer, levelById, puzzleForLevel } from '../../src/levels/levels';
-import {
-  apply,
-  computeReadings,
-  convert,
-  createDeduction,
-  createRng,
-  generatePuzzle,
-  HUNTER,
-  minSteps,
-  PHASE1_CONFIG,
-  PHASE1_DEDUCTION,
-  PHASE1_SPECIES,
-  rateDeduction,
-  SCOUT,
-  type DeductionState,
-  type DeductionTools,
-} from '../../src/puzzle';
+import { AREAS, LEVELS, levelAnswer, levelById, puzzleForLevel, puzzleWithL } from '../../src/levels/levels';
+import { computeReadings, createRng, generatePuzzle, HUNTER, PHASE1_CONFIG, PHASE1_SPECIES, SCOUT } from '../../src/puzzle';
 
 const S = SCOUT.id;
 const H = HUNTER.id;
@@ -67,60 +51,19 @@ describe('關卡資料', () => {
   });
 });
 
-/** 依序按鍵：'D' = 一隻偵察體變獵獸、'A' = 變回、'W'／'Q' = 一次兩隻 */
-function play(state: DeductionState, keys: string): DeductionState {
-  for (const k of keys) {
-    const r =
-      k === 'D'
-        ? convert(state, S, H)
-        : k === 'A'
-          ? convert(state, H, S)
-          : apply(state, { type: 'batch', from: k === 'W' ? S : H, to: k === 'W' ? H : S, count: 2 });
-    state = r.state;
-  }
-  return state;
-}
-
-describe('第一關改成資料驅動後行為不變（和原本 ?seed=7 的隨機題比對）', () => {
-  const old = generatePuzzle(PHASE1_CONFIG, createRng(7));
-  const now = puzzleForLevel(levelById(1), createRng(7));
-
-  it('?seed=7 的舊隨機題剛好是 1 偵察體 + 4 獵獸（5 隻、18 個接觸點）', () => {
-    expect(old.answer).toEqual({ [S]: 1, [H]: 4 });
-    expect(old.readings).toEqual({ N: 5, L: 18 });
+describe('答錯換題後存的 L', () => {
+  it('用生物數＋新的 L 建回題目', () => {
+    const p = puzzleWithL(levelById(1), 14);
+    expect(p?.answer).toEqual({ [S]: 3, [H]: 2 });
+    expect(p?.readings).toEqual({ N: 5, L: 14 });
   });
 
-  it('題目內容完全相同', () => {
-    expect(now).toEqual(old);
+  it('不合理的 L 回傳 null（改用關卡資料的題目）', () => {
+    expect(puzzleWithL(levelById(1), 19)).toBeNull();
+    expect(puzzleWithL(levelById(1), 40)).toBeNull();
   });
 
-  const lv1: DeductionTools = { batch: false, fixedCounts: [] };
-  const lv2: DeductionTools = { batch: false, fixedCounts: [2] };
-  const cases: [string, DeductionTools, string][] = [
-    ['手套 Lv1，最少步', lv1, 'DDDD'],
-    ['手套 Lv1，多走兩個來回', lv1, 'DDADDADD'],
-    ['手套 Lv1，多走很多', lv1, 'DADADADADDDD'],
-    ['手套 Lv2，用 W', lv2, 'WW'],
-    ['手套 Lv2，混用', lv2, 'WDD'],
-    ['手套 Lv2，繞遠路', lv2, 'WWQWDADADD'],
-  ];
-  for (const [name, tools, keys] of cases) {
-    it(`${name}（${keys}）：步數、最少步數、評級都一樣`, () => {
-      const opts = { ...PHASE1_DEDUCTION, fixedCounts: tools.fixedCounts };
-      const a = play(createDeduction(old, opts), keys);
-      const b = play(createDeduction(now, opts), keys);
-      expect(b.slots).toEqual(a.slots);
-      expect(b.solved).toBe(a.solved);
-      expect(rateDeduction(b)).toEqual(rateDeduction(a));
-    });
-  }
-
-  it('最少步數由關卡資料算出：第一關 Lv1 = 4、Lv2 = 2；第二關 Lv1 = 3、Lv2 = 2', () => {
-    const start1 = { [S]: 5, [H]: 0 };
-    const start2 = { [S]: 8, [H]: 0 };
-    expect(minSteps(start1, levelAnswer(levelById(1)), lv1)).toBe(4);
-    expect(minSteps(start1, levelAnswer(levelById(1)), lv2)).toBe(2);
-    expect(minSteps(start2, levelAnswer(levelById(2)), lv1)).toBe(3);
-    expect(minSteps(start2, levelAnswer(levelById(2)), lv2)).toBe(2);
+  it('?seed=7 的舊隨機題剛好就是第一關的 1 偵察體 + 4 獵獸', () => {
+    expect(generatePuzzle(PHASE1_CONFIG, createRng(7)).answer).toEqual(levelAnswer(levelById(1)));
   });
 });

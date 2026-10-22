@@ -46,9 +46,13 @@ describe('推演手套升級樹', () => {
     expect(tryUpgrade({ level: 3, chips: 9 }, 2).ok).toBe(false);
   });
 
-  it('能力累加：Lv2 有一次轉 2 隻，Lv3 再加上算式', () => {
-    expect(gloveFeatures(1)).toEqual({ pairConvert: null, formulaHint: false });
-    expect(gloveFeatures(2)).toEqual({ pairConvert: 2, formulaHint: false });
-    expect(gloveFeatures(3)).toEqual({ pairConvert: 2, formulaHint: true });
+  it('能力累加：Lv2 有試算，Lv3 再加上提示句', () => {
+    expect(gloveFeatures(1)).toEqual({ trial: false, stepHint: false });
+    expect(gloveFeatures(2)).toEqual({ trial: true, stepHint: false });
+    expect(gloveFeatures(3)).toEqual({ trial: true, stepHint: true });
+  });
+
+  it('卡片文案不含任何除法算式', () => {
+    for (const l of GLOVE_UPGRADES.levels) expect(l.effect).not.toMatch(/÷|\//);
   });
 });

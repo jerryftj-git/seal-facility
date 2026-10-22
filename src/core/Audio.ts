@@ -14,6 +14,7 @@ export class GameAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private hum: { stop(): void } | null = null;
+  private siren: { stop(): void } | null = null;
 
   unlock(): void {
     if (!this.ctx) {
@@ -115,6 +116,60 @@ export class GameAudio {
     this.tone(330, duration, { type: 'sawtooth', gain: 0.035, slideTo: 1320, attack: 0.05 });
     this.noise(duration, { gain: 0.05, freq: 1200, sweepTo: 5000, q: 6 });
     this.tone(1760, 0.18, { type: 'triangle', gain: 0.07, delay: duration });
+  }
+
+  /** 密碼盤按一個數字 */
+  keyTick(): void {
+    this.tone(1200, 0.05, { type: 'square', gain: 0.03 });
+  }
+
+  /** 密碼錯誤：低沉的兩聲錯誤音 */
+  wrong(): void {
+    this.tone(140, 0.25, { type: 'sawtooth', gain: 0.12, slideTo: 110 });
+    this.tone(140, 0.35, { type: 'sawtooth', gain: 0.12, slideTo: 90, delay: 0.3 });
+  }
+
+  /** 保全警報：高低交替的警笛聲，持續 duration 秒（stopAlarm 可以提早停） */
+  alarm(duration: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    this.stopAlarm();
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    // 每 0.5 秒在 620 Hz／880 Hz 之間切換
+    for (let t = 0; t < duration; t += 0.5) osc.frequency.setValueAtTime(Math.round(t * 2) % 2 === 0 ? 620 : 880, t0 + t);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.1);
+    g.gain.setValueAtTime(0.045, t0 + duration - 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(lp).connect(g).connect(this.master);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+    const handle = { stop: () => osc.stop() };
+    this.siren = handle;
+    osc.onended = () => {
+      if (this.siren === handle) this.siren = null;
+    };
+  }
+
+  stopAlarm(): void {
+    try {
+      this.siren?.stop();
+    } catch {
+      /* 已經停了 */
+    }
+    this.siren = null;
+  }
+
+  /** 封印艙重新佈署生物 */
+  redeploy(): void {
+    this.noise(0.9, { gain: 0.08, freq: 400, sweepTo: 2500, q: 2 });
+    [330, 440, 660].forEach((f, i) => this.tone(f, 0.25, { type: 'triangle', gain: 0.06, delay: 0.5 + i * 0.08 }));
   }
 
   uiOpen(): void {

@@ -1,10 +1,10 @@
 # 封印設施（暫名）
 
-給國小四～六年級的 3D 網頁解謎遊戲：玩家用「推演手套」推出封印艙裡雙足／四足生物的組成，
-在不知不覺中練習雞兔同籠的假設法。three.js + Vite + TypeScript，純前端。
+給國小四～六年級的 3D 網頁解謎遊戲：玩家用「推演手套」思考封印艙裡雙足／四足生物的組成，
+再到大門的密碼盤輸入答案（只有一次機會），在不知不覺中練習雞兔同籠的假設法。three.js + Vite + TypeScript，純前端。
 
 - 線上版：<https://jerryftj-git.github.io/seal-facility/>
-- 里程碑 1：出生點 → 走廊 → 封印艙 + 門 → 寶箱 → 結算
+- 流程：出生點 → 走廊 → 封印艙（推演手套）→ 大門密碼盤 → 寶箱 → 結算
 
 ## 本機執行
 
@@ -47,8 +47,9 @@ npm run dev
 | 移動 | WASD（按住 Shift 慢走） | 左半邊虛擬搖桿（輕推慢走、推到底跑） |
 | 視角 | 滑鼠（點畫面鎖定游標，Esc 解除） | 右半邊拖曳 |
 | 互動 | E | 靠近時右下角出現的互動鈕 |
-| 推演：轉雙足／轉四足 | 點面板按鈕，或 A／← 、D／→（可按住連按） | 點面板按鈕（可按住連按） |
-| 離開推演 | E／Esc | 面板右上「離開」 |
+| 推演手套 | 封印艙前按 E；Lv2 試算：數字鍵或 −／＋，Enter 確認 | 互動鈕；試算用 −／＋ |
+| 封印解除碼 | 大門右側密碼盤前按 E；數字鍵 0–9、Backspace、Enter | 互動鈕；螢幕鍵盤 |
+| 離開面板 | E／Esc | 面板右上「離開」 |
 
 ## 部署到 GitHub Pages
 
@@ -184,7 +185,10 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 - **存檔**：localStorage，key 集中在 `src/core/saveData.ts` 的 `SAVE_CONFIG`（晶片數、手套等級、各房間隱藏晶片、目前關卡、本輪晶片、各關掃描／評級、一次性提示、開場是否看過）。
   想重新體驗「第一次」：在瀏覽器 Console 執行 `localStorage.removeItem('sealFacility.save.v1')` 後重新整理。
 - 操作：封印艙前按 E 打開推演（推演分頁）；其他地方按 E（觸控版是右上角的「手套」按鈕）打開手套的升級分頁。Tab 切換分頁、升級分頁按 Enter 升級。
-  手套 Lv2 起，推演時 Q／W 一次轉換 2 隻。
+  手套 Lv1 顯示假設法第一步；Lv2「試算」（每關 1 次）；Lv3 提示句。不顯示任何除法算式或答案。
+- **過關**：大門右側的密碼盤輸入四位數封印解除碼（前兩位偵察體、後兩位獵獸）。答錯會觸發 20 秒保全警報，
+  之後封印艙重新佈署生物（N 不變、換一個 L，用 `redeployPuzzle`）。判定、換題、試算、評級都在 `src/puzzle/answer.ts`。
+- **評級**：S = 一次答對、沒用試算；A = 一次答對、用過試算；B = 觸發過警報後答對。結算顯示「嘗試次數」。
 
 ### 關卡資料（`src/levels/levels.ts`）
 
@@ -202,7 +206,7 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 | `requiresScan` | 要先到掃描台掃描才看得到地上的接觸點 | false | true | true |
 
 - 偵察體／獵獸的數量由「總數、接觸點」推回（獵獸 = (L − 2N) ÷ 2），測試會檢查三關都是合理的整數。
-- 最少步數與評級照舊由題目和手套工具計算（`src/puzzle/rating.ts`），沒有寫死在關卡裡。
+- 評級由作答過程計算（`rateLevel`，`src/puzzle/answer.ts`），沒有寫死在關卡裡。
 - `AREAS` 決定一個區域由哪幾關串起來（區域 1 = 第一關＋第二關）。各關的走廊依序往 −Z 接，每段 44 m，中間是一道隔門（`src/core/Level.ts`、`src/world/Segment.ts`）。
 - **走廊線條換色**：線條材質名稱是 `accent`，`recolorAccent()` 會把它換成該關的顏色。之後換成 glb 走廊時，發光線條的材質也命名為 `accent` 就能跟著換色。
 
@@ -238,7 +242,6 @@ tests/        Vitest：puzzle 全部邏輯，以及碰撞、互動判定、按�
 
 - **生物種類**是清單（`SpeciesDef { id, name, legs }`），新增種類不用改邏輯。
 - **`Modifier`**：改變每隻生物的受力點數，例如里程碑 2 的重力靴（`legsOf: (s, legs) => legs - 2`）。
-- **`startAssumption`**：`'allBiped'`（預設）或 `'random'`（起點隨機但不等於答案）。
-- **動作**：`apply(state, { type: 'convert' })` 單步、`{ type: 'batch', count }` 批次轉盤（里程碑 2），每個有效動作算一步；最少步數會依起點和工具自動計算。
+- **作答**（`answer.ts`）：`checkCode`、`trialPoints`、`rateLevel`、`redeployPuzzle`（答錯換題，用 `generatePuzzle`）。
 
 設計與實作上的細節決定記在 [DECISIONS.md](DECISIONS.md)，待確認事項在 [QUESTIONS.md](QUESTIONS.md)。

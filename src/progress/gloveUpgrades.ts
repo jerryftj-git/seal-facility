@@ -12,17 +12,24 @@ export interface GloveLevelDef {
   readonly effect: string;
   /** 這一級的手套 UI 邊框顏色（推演面板、HUD 晶片框、互動提示、觸控按鈕） */
   readonly color: string;
-  /** 解鎖 Q／W：一次轉換這麼多隻 */
-  readonly pairConvert?: number;
-  /** 解鎖推演面板的算式提示 */
-  readonly formulaHint?: boolean;
+  /** 解鎖「試算」：輸入獵獸數，看推演出來的接觸點（每關 1 次） */
+  readonly trial?: boolean;
+  /** 解鎖提示句「每把一隻偵察體變成獵獸，接觸點 +2」 */
+  readonly stepHint?: boolean;
 }
 
 export const GLOVE_UPGRADES = {
   levels: [
-    { level: 1, cost: 0, name: '標準推演手套', effect: '一次轉換 1 隻（A／D）', color: '#2ee6f0' },
-    { level: 2, cost: 2, name: '雙重轉換', effect: '新增 Q／W：一次轉換 2 隻', color: '#ff9a2e', pairConvert: 2 },
-    { level: 3, cost: 3, name: '推演算式', effect: '提示句下方顯示算式：還差多少、要轉幾隻', color: '#ffd24a', formulaHint: true },
+    { level: 1, cost: 0, name: '標準推演手套', effect: '顯示假設法第一步：假設都是偵察體，還差幾個接觸點', color: '#2ee6f0' },
+    {
+      level: 2,
+      cost: 2,
+      name: '試算',
+      effect: '推演分頁多一個「如果獵獸有 [ ] 隻」：輸入後顯示這樣推演出來的接觸點。每關只能試算 1 次，不會開門、不會觸發警報',
+      color: '#ff9a2e',
+      trial: true,
+    },
+    { level: 3, cost: 3, name: '提示', effect: '提示句多一行：「每把一隻偵察體變成獵獸，接觸點 +2」', color: '#ffd24a', stepHint: true },
   ] as readonly GloveLevelDef[],
 };
 
@@ -72,15 +79,15 @@ export function tryUpgrade(s: GloveState, target: number): { ok: boolean; state:
 }
 
 /** 目前等級擁有的能力（等級以下所有效果累加） */
-export function gloveFeatures(level: number): { pairConvert: number | null; formulaHint: boolean } {
-  let pair: number | null = null;
-  let formula = false;
+export function gloveFeatures(level: number): { trial: boolean; stepHint: boolean } {
+  let trial = false;
+  let stepHint = false;
   for (const l of GLOVE_UPGRADES.levels) {
     if (l.level > level) break;
-    if (l.pairConvert) pair = l.pairConvert;
-    if (l.formulaHint) formula = true;
+    if (l.trial) trial = true;
+    if (l.stepHint) stepHint = true;
   }
-  return { pairConvert: pair, formulaHint: formula };
+  return { trial, stepHint };
 }
 
 /** 晶片是否第一次達到下一級的門檻 */

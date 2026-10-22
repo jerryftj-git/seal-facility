@@ -84,6 +84,12 @@ export class Hud {
     this.glove.classList.toggle('hidden', !on);
   }
 
+  /** 目標列目前占掉的區域（隱藏時 null），給鏡頭構圖避開 */
+  objectiveRect(): DOMRect | null {
+    if (this.root.classList.contains('hidden') || this.objective.classList.contains('hidden')) return null;
+    return this.objective.getBoundingClientRect();
+  }
+
   chipRect(): DOMRect {
     return this.chip.querySelector('svg')!.getBoundingClientRect();
   }

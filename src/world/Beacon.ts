@@ -10,6 +10,7 @@ export class Beacon {
   private readonly lamp: THREE.Mesh;
   private readonly shade: THREE.Mesh;
   private clear = false;
+  private alarm = false;
 
   constructor(withLight: boolean) {
     this.light = withLight ? new THREE.PointLight(PALETTE.warning, 5, 8, 2) : null;
@@ -30,6 +31,11 @@ export class Beacon {
     if (this.light) this.object.add(this.light);
   }
 
+  /** 保全警報：轉得更快、閃得更亮 */
+  setAlarm(on: boolean): void {
+    this.alarm = on;
+  }
+
   setClear(): void {
     this.clear = true;
     (this.lamp.material as THREE.MeshBasicMaterial).color.set(PALETTE.green);
@@ -39,7 +45,8 @@ export class Beacon {
 
   update(time: number): void {
     if (this.clear) return;
-    this.object.getObjectByName('pivot')!.rotation.y = time * 5;
-    if (this.light) this.light.intensity = 2.5 + Math.max(0, Math.sin(time * 5)) * 6;
+    const speed = this.alarm ? 14 : 5;
+    this.object.getObjectByName('pivot')!.rotation.y = time * speed;
+    if (this.light) this.light.intensity = (this.alarm ? 4 : 2.5) + Math.max(0, Math.sin(time * speed)) * (this.alarm ? 12 : 6);
   }
 }

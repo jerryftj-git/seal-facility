@@ -12,6 +12,7 @@ import { Chest } from './Chest';
 import { Door } from './Door';
 import { chipWallGlow, HiddenChip, supplyCrates } from './HiddenChip';
 import { HoloProjection } from './HoloProjection';
+import { Keypad } from './Keypad';
 import { ScanStation } from './ScanStation';
 import { SealPod } from './SealPod';
 import { buildNook, NOOK } from './UWall';
@@ -39,6 +40,8 @@ export const LAYOUT = {
   podFocus: new THREE.Vector3(-2.0, 1.55, -20),
   /** 補給箱（右牆中段）：第一關的隱藏晶片藏在它後方牆角 */
   crates: { x: 2.25, z: -10.3 },
+  /** 密碼盤的互動點：大門右側門框前（門框正面在 z −23.6） */
+  keypad: { x: 2.0, z: -22.9 },
   /** 掃描台：封印艙靠入口那一端的前方。從入口直線走到掃描台，離第二關的隱藏晶片約 1.8 m */
   scan: { x: -1.4, z: -15.8 },
   /** 開門演出的鏡位 */
@@ -78,6 +81,8 @@ export class Segment {
   readonly beacons: Beacon[] = [];
   readonly hiddenChip: HiddenChip;
   readonly scanStation: ScanStation | null;
+  /** 大門右側門框上的密碼盤 */
+  readonly keypad = new Keypad();
   readonly interactables: Interactable[];
   /** 交給 LightPool 的燈光設定（本身不顯示） */
   readonly corridorLights: THREE.PointLight[] = [];
@@ -137,6 +142,9 @@ export class Segment {
     this.doorObstacle = world.add({ name: `door${o.def.id}`, minX: -2.2, maxX: 2.2, minZ: dz - 0.3, maxZ: dz + 0.3 });
     world.add({ name: `doorFrameL${o.def.id}`, minX: -hw, maxX: -2.2, minZ: dz - 0.4, maxZ: dz + 0.4 });
     world.add({ name: `doorFrameR${o.def.id}`, minX: 2.2, maxX: hw, minZ: dz - 0.4, maxZ: dz + 0.4 });
+    // 密碼盤：右側門框正面，高約 1.35 m
+    this.keypad.object.position.set(CORRIDOR.width / 2 - 0.4, 1.35, LAYOUT.doorZ + 0.43);
+    this.root.add(this.keypad.object);
     // 兩盞警示燈共用一個點光源（省效能）
     [-2.6, 2.6].forEach((x, i) => {
       const b = new Beacon(i === 0);
@@ -258,6 +266,15 @@ export class Segment {
         enabled: () => !this.pod.solved,
       },
       {
+        id: 'keypad',
+        level,
+        label: '輸入封印解除碼',
+        x: LAYOUT.keypad.x,
+        z: LAYOUT.keypad.z + oz,
+        radius: 1.5,
+        enabled: () => !this.pod.solved,
+      },
+      {
         id: 'chest',
         level,
         label: '開啟寶箱',
@@ -305,8 +322,9 @@ export class Segment {
   }
 
   /** 目標標記的位置 */
-  marker(what: 'pod' | 'chest' | 'scan'): THREE.Vector3 {
+  marker(what: 'pod' | 'chest' | 'scan' | 'keypad'): THREE.Vector3 {
     if (what === 'pod') return this.world(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z);
+    if (what === 'keypad') return this.world(CORRIDOR.width / 2 - 0.4, 2.2, LAYOUT.doorZ + 0.5);
     if (what === 'chest') return this.world(LAYOUT.chest.x, 1.5, LAYOUT.chest.z);
     return this.world(LAYOUT.scan.x, 2.1, LAYOUT.scan.z);
   }
@@ -324,6 +342,7 @@ export class Segment {
       (this.wallGlow.material as THREE.MeshBasicMaterial).opacity = 0.2 + this.hiddenChip.blink * 0.7;
     }
     this.scanStation?.update(time);
+    this.keypad.update(time);
   }
 
   dispose(): void {

@@ -47,6 +47,8 @@ export class Level {
   readonly gates: Gate[] = [];
   readonly interactables: Interactable[] = [];
   /** 場景裡真正的點光源（數量固定）：走廊 3、封印艙 1、警示燈 1、寶箱 1——和只有第一段時一樣 */
+  private readonly hemi = new THREE.HemisphereLight(0x7898b2, 0x0c1218, 2.0);
+  private readonly hemiColor = new THREE.Color(0x7898b2);
   private readonly pools = { corridor: new LightPool(3), pod: new LightPool(1), beacon: new LightPool(1), chest: new LightPool(1) };
 
   constructor(assets: AssetLoader, setups: readonly LevelSetup[]) {
@@ -83,7 +85,7 @@ export class Level {
     });
 
     // 一盞半球光打底（全區域共用）＋點光源池
-    this.root.add(new THREE.HemisphereLight(0x7898b2, 0x0c1218, 2.0));
+    this.root.add(this.hemi);
     for (const p of Object.values(this.pools)) this.root.add(p.object);
   }
 
@@ -107,6 +109,16 @@ export class Level {
     if (!gate || gate.door.isOpen) return;
     await gate.door.open(tweens, audio);
     gate.obstacle.enabled = false;
+  }
+
+  /**
+   * 保全警報：走廊的燈轉紅（0 = 正常，1 = 全紅）。只改顏色，光源數量不變。
+   */
+  setAlarm(amount: number): void {
+    this.pools.corridor.setTint(amount);
+    this.pools.pod.setTint(amount);
+    this.hemi.color.copy(this.hemiColor).lerp(new THREE.Color(0xff3020), amount * 0.6);
+    for (const s of this.segments) s.beacons.forEach((b) => b.setAlarm(amount > 0));
   }
 
   /**

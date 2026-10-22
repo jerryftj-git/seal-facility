@@ -18,25 +18,6 @@
     holo-flicker 4s infinite steps(1);
 }
 
-/* 差距不為零（不足或超過）一律橘色；剛好一樣多是綠色 */
-.gauntlet[data-dir='over'] {
-  --accent: var(--under);
-}
-
-.gauntlet[data-dir='match'],
-.gauntlet.solved {
-  --accent: var(--green);
-}
-
-/* 還沒掃描地面：差距區只顯示「先掃描地面才能推演」 */
-.gauntlet[data-dir='locked'] {
-  --accent: var(--text-dim);
-}
-
-.gauntlet[data-dir='locked'] .g-diff-text {
-  padding: 10px 0;
-  font-size: 16px;
-}
 
 /* 背景不透明一點：場景裡的燈條、管線不會從面板後面透出來擋到文字 */
 .gauntlet.holo {
@@ -72,17 +53,6 @@
   }
 }
 
-.gauntlet.solved {
-  border-color: rgba(61, 255, 138, 0.6);
-  box-shadow:
-    0 0 32px rgba(61, 255, 138, 0.3),
-    inset 0 0 32px rgba(61, 255, 138, 0.1);
-}
-
-.gauntlet.solved::after {
-  background: repeating-linear-gradient(to bottom, rgba(61, 255, 138, 0.08) 0 1px, transparent 1px 4px);
-}
-
 .g-head {
   display: flex;
   justify-content: space-between;
@@ -96,10 +66,6 @@
   font-size: 14px;
   letter-spacing: 0.25em;
   color: var(--cyan);
-}
-
-.solved .g-title {
-  color: var(--green);
 }
 
 .g-dot {
@@ -141,79 +107,6 @@
   border-radius: 4px;
 }
 
-.solved .g-goal {
-  color: var(--green);
-  border-left-color: var(--green);
-  background: rgba(61, 255, 138, 0.08);
-}
-
-.g-hyp {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-}
-
-.g-counts {
-  display: flex;
-  gap: 18px;
-}
-
-.g-count {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  color: var(--text-dim);
-}
-
-.g-count svg {
-  width: 26px;
-  height: 26px;
-  color: var(--cyan);
-}
-
-.solved .g-count svg {
-  color: var(--green);
-}
-
-.g-count small {
-  display: block;
-  font-size: 11px;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.g-count b {
-  min-width: 1.2em;
-  font-family: var(--mono);
-  font-size: 24px;
-  color: var(--text);
-}
-
-.g-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.g-row {
-  display: grid;
-  grid-template-columns: 8.2em 1fr 2.4em;
-  gap: 10px;
-  align-items: center;
-  font-size: 14px;
-}
-
-.g-row label {
-  color: var(--text-dim);
-}
-
-.g-row output {
-  font-family: var(--mono);
-  font-size: 22px;
-  text-align: right;
-}
-
 .g-bar {
   position: relative;
   height: 18px;
@@ -239,7 +132,8 @@
   box-shadow: 0 0 10px rgba(46, 230, 240, 0.5);
 }
 
-.act .g-bar .fill {
+.act .g-bar .fill,
+.g-trial-result .g-bar .fill {
   background: linear-gradient(90deg, rgba(216, 238, 245, 0.25), rgba(216, 238, 245, 0.7));
   box-shadow: none;
 }
@@ -255,11 +149,6 @@
   margin-left: -1px;
   background: var(--text);
   box-shadow: 0 0 6px var(--text);
-}
-
-.solved .g-bar .fill {
-  background: linear-gradient(90deg, rgba(61, 255, 138, 0.35), rgba(61, 255, 138, 0.9));
-  box-shadow: 0 0 10px rgba(61, 255, 138, 0.5);
 }
 
 .g-diff {
@@ -293,78 +182,6 @@
 }
 
 
-.g-diff.bump b {
-  animation: bump 0.2s ease-out;
-}
-
-@keyframes bump {
-  from {
-    transform: scale(1.25);
-  }
-}
-
-.g-buttons {
-  display: grid;
-  /* 兩顆按鈕固定等寬（不讓比較長的文字把一邊撐寬） */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.g-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 64px;
-  padding: 10px 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  background: rgba(46, 230, 240, 0.1);
-  border: 1px solid var(--cyan-dim);
-  border-radius: 8px;
-  touch-action: none;
-  transition:
-    background 0.12s,
-    opacity 0.2s,
-    transform 0.08s;
-}
-
-.g-btn:hover {
-  background: rgba(46, 230, 240, 0.18);
-}
-
-.g-btn.down {
-  background: rgba(46, 230, 240, 0.32);
-  transform: scale(0.97);
-}
-
-.g-btn.dim {
-  opacity: 0.32;
-}
-
-/* 按鈕文字固定斷成兩行（「轉換一隻為」／「兩隻腳」），不讓瀏覽器隨意斷成三行 */
-.g-btn-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.3;
-  font-size: 15px;
-}
-
-.g-btn-label > span {
-  white-space: nowrap;
-}
-
-.g-btn-arrow {
-  color: var(--cyan);
-}
-
-.solved .g-btn {
-  opacity: 0.25;
-  pointer-events: none;
-}
-
 .gauntlet[data-side='bottom'] {
   gap: 10px;
   padding: 14px 16px 16px;
@@ -379,31 +196,9 @@
     gap: 8px;
     padding: 12px 14px;
   }
-  .g-btn {
-    min-height: 52px;
-  }
   .g-diff b {
     font-size: 32px;
   }
-}
-
-/* 窄螢幕（手機）：按鈕字小一點，五個字才放得進一行 */
-@media (max-width: 480px) {
-  .g-btn {
-    gap: 4px;
-    padding: 8px 6px;
-    font-size: 14px;
-  }
-}
-
-/* 剛好一樣多：兩條能量條也轉綠 */
-.gauntlet[data-dir='match'] .g-bar .fill {
-  background: linear-gradient(90deg, rgba(61, 255, 138, 0.35), rgba(61, 255, 138, 0.9));
-  box-shadow: 0 0 10px rgba(61, 255, 138, 0.5);
-}
-
-.gauntlet[data-dir='match'] .g-diff b {
-  font-size: 34px;
 }
 
 /* ───── 推演手套等級顏色：面板邊框 ───── */
@@ -482,96 +277,102 @@
   border-radius: 6px;
 }
 
-.g-btn:disabled {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-/* ───── Lv2：Q／W 在 A／D 外側 ───── */
-.g-buttons.with-pair {
-  grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr) 58px;
-  gap: 8px;
-}
-
-.g-buttons.with-pair .g-btn-arrow {
-  display: none; /* 空間留給文字；方向由按鈕位置表示 */
-}
-
-.g-pair {
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 4px;
-  border-color: color-mix(in srgb, var(--glove) 60%, transparent);
-}
-
-.g-pair .g-btn-label {
-  font-size: 14px;
-}
-
-.g-pair.hidden {
-  display: none;
-}
-
-/* ───── Lv3：算式提示 ───── */
-.g-formula {
-  margin-top: 2px;
-  padding: 3px 10px;
-  font-family: var(--mono);
-  font-size: 15px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--glove) 14%, transparent);
-  border-radius: 4px;
-}
-
-.g-formula[hidden] {
-  display: none;
-}
-
-/* Lv2 以上多了 Q／W：右側面板加寬，A／D 的鍵位標籤移到角落，不佔橫向空間 */
-.gauntlet[data-side='right'][data-pair='1'] {
-  width: min(440px, 46vw);
-}
-
-.g-buttons.with-pair .g-btn {
-  position: relative;
-  padding: 10px 6px;
-}
-
-.g-buttons.with-pair .g-btn:not(.g-pair) .g-btn-label {
-  font-size: 14px;
-}
-
-.g-buttons.with-pair .g-btn:not(.g-pair) kbd {
-  position: absolute;
-  top: 3px;
-  padding: 0 4px;
-  font-size: 10px;
-}
-
-.g-buttons.with-pair .to-biped kbd {
-  right: 4px;
-}
-
-.g-buttons.with-pair .to-quad kbd {
-  left: 4px;
-}
-
-/* 手機寬度：Q／W 再窄一點、字再小一點 */
-@media (max-width: 480px) {
-  .g-buttons.with-pair {
-    grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) 46px;
-    gap: 6px;
-  }
-  .g-buttons.with-pair .g-btn:not(.g-pair) .g-btn-label {
-    font-size: 13px;
-  }
-  .g-pair .g-btn-label {
-    font-size: 12px;
-  }
-}
-
 /* 下方版面（直拿／手機）：分頁、提示、算式變多後可能放不下，最高 66% 畫面，超出就可以捲動 */
 .gauntlet[data-side='bottom'] {
   max-height: 66vh;
   overflow-y: auto;
 }
+
+/* ───── 推演分頁：假設法第一步 ───── */
+.g-seen {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.g-seen b,
+.g-step-text b {
+  font-family: var(--mono);
+  font-size: 22px;
+  color: var(--text);
+}
+
+.g-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g-step-text {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+/* ───── 手套 Lv2：試算 ───── */
+.g-trial {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--glove) 50%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--glove) 8%, transparent);
+}
+
+.g-trial.hidden,
+.g-trial-result.hidden,
+.g-trial-used.hidden {
+  display: none;
+}
+
+.g-trial-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.g-trial-row button {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 18px;
+  color: var(--text);
+  background: rgba(46, 230, 240, 0.1);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 6px;
+  touch-action: manipulation;
+}
+
+.g-trial-row .g-trial-ok {
+  margin-left: auto;
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+.g-trial-row button:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.g-trial-value {
+  min-width: 1.6em;
+  font-family: var(--mono);
+  font-size: 24px;
+  text-align: center;
+}
+
+.g-trial.used .g-trial-row {
+  opacity: 0.45;
+}
+
+.g-trial-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g-trial-used {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+

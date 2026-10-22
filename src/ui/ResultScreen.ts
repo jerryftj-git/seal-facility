@@ -3,7 +3,8 @@ import { el, ICONS } from './icons';
 import './styles/screens.css';
 
 export interface LevelResult {
-  steps: number;
+  /** 送出封印解除碼的次數 */
+  attempts: number;
   grade: Grade;
   /** 這一關的最佳評級（含這次） */
   best: Grade;
@@ -18,7 +19,7 @@ export function gradePair(last: Grade | null, best: Grade | null): string {
 }
 
 /**
- * 第一關結算：使用步數、評級（本次／最佳）、取得的晶片；「繼續前進」到下一段走廊，「再次潛入」從第一關重來。
+ * 第一關結算：嘗試次數、評級（本次／最佳）、取得的晶片；「繼續前進」到下一段走廊，「再次潛入」從第一關重來。
  * 刻意不解釋評級怎麼算。
  */
 export class ResultScreen {
@@ -41,7 +42,7 @@ export class ResultScreen {
         <div class="grade stamp" data-grade="${r.grade}">${r.grade}</div>
         <dl class="result-rows">
           <dt>評級</dt><dd>${gradePair(r.grade, r.best)}</dd>
-          <dt>使用步數</dt><dd>${r.steps}</dd>
+          <dt>嘗試次數</dt><dd>${r.attempts}</dd>
           <dt>取得</dt><dd style="font-family:var(--font);font-size:18px;color:var(--cyan);display:flex;gap:8px;align-items:center"><span style="width:26px;display:inline-flex">${ICONS.chip}</span>資料晶片 ×${r.chips}</dd>
         </dl>
         <div class="screen-buttons">

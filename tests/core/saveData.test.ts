@@ -59,14 +59,16 @@ describe('存檔', () => {
     expect(() => writeSave(defaultSave(), broken)).not.toThrow();
   });
 
-  it('關卡進度：目前關卡、各關掃描、評級、本輪晶片寫入後讀回來一樣', () => {
+  it('關卡進度：目前關卡、各關掃描、換過的題目、警報、評級、本輪晶片寫入後讀回來一樣', () => {
     const s = memory();
     const d = defaultSave();
     d.currentLevel = 2;
     d.runChips = 3;
     d.roomChips = { zone01: true, zone02: true };
     levelSave(d, 2).scanned = true;
-    recordLevelResult(d, 1, 'A', 9);
+    levelSave(d, 1).currentL = 14;
+    levelSave(d, 1).alarmed = true;
+    recordLevelResult(d, 1, 'B', 2);
     writeSave(d, s);
     expect(loadSave(s)).toEqual(d);
   });
@@ -75,27 +77,33 @@ describe('存檔', () => {
     const s = memory();
     s.setItem(
       SAVE_CONFIG.storageKey,
-      JSON.stringify({ currentLevel: 7, runChips: -1, levels: { '1': { scanned: 'yes', lastGrade: 'Z', bestGrade: 'S', lastSteps: 4.7 }, x: {} } }),
+      JSON.stringify({
+        currentLevel: 7,
+        runChips: -1,
+        levels: { '1': { scanned: 'yes', lastGrade: 'Z', bestGrade: 'S', lastAttempts: 4.7, lastSteps: 9, currentL: 16, alarmed: 1 }, x: {} },
+      }),
     );
     const r = loadSave(s, 3, 2);
     expect(r.currentLevel).toBe(2);
     expect(r.runChips).toBe(0);
-    expect(r.levels).toEqual({ '1': { scanned: false, lastGrade: null, lastSteps: 4, bestGrade: 'S' } });
+    expect(r.levels).toEqual({
+      '1': { scanned: false, currentL: 16, alarmed: false, attempts: 0, lastGrade: null, lastAttempts: 4, bestGrade: 'S' },
+    });
   });
 
   it('最佳評級只會被更好的評級覆蓋，最近一次每次都覆蓋', () => {
     const d = defaultSave();
-    recordLevelResult(d, 1, 'A', 8);
-    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'A', bestGrade: 'A', lastSteps: 8 });
-    recordLevelResult(d, 1, 'S', 4);
-    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'S', bestGrade: 'S', lastSteps: 4 });
-    recordLevelResult(d, 1, 'B', 15);
-    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'B', bestGrade: 'S', lastSteps: 15 });
+    recordLevelResult(d, 1, 'A', 1);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'A', bestGrade: 'A', lastAttempts: 1 });
+    recordLevelResult(d, 1, 'S', 1);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'S', bestGrade: 'S', lastAttempts: 1 });
+    recordLevelResult(d, 1, 'B', 3);
+    expect(levelSave(d, 1)).toMatchObject({ lastGrade: 'B', bestGrade: 'S', lastAttempts: 3 });
     expect(betterGrade(null, 'B')).toBe('B');
     expect(betterGrade('A', 'B')).toBe('A');
   });
 
-  it('重新開始：回第一關、清掉本輪晶片與掃描；晶片、手套、隱藏晶片、評級保留', () => {
+  it('重新開始：回第一關、清掉本輪晶片、掃描、換過的題目與警報；晶片、手套、隱藏晶片、評級保留', () => {
     const d = defaultSave();
     d.chips = 5;
     d.gloveLevel = 2;
@@ -103,11 +111,14 @@ describe('存檔', () => {
     d.runChips = 4;
     d.roomChips = { zone02: true };
     levelSave(d, 2).scanned = true;
-    recordLevelResult(d, 1, 'S', 4);
+    levelSave(d, 2).currentL = 20;
+    levelSave(d, 2).alarmed = true;
+    levelSave(d, 2).attempts = 2;
+    recordLevelResult(d, 1, 'S', 1);
     resetRun(d);
     expect(d.currentLevel).toBe(1);
     expect(d.runChips).toBe(0);
-    expect(levelSave(d, 2).scanned).toBe(false);
+    expect(levelSave(d, 2)).toMatchObject({ scanned: false, currentL: null, alarmed: false, attempts: 0 });
     expect(d.chips).toBe(5);
     expect(d.gloveLevel).toBe(2);
     expect(d.roomChips).toEqual({ zone02: true });

@@ -1,81 +1,55 @@
-import { el, ICONS } from './icons';
-import { RepeatTimer } from './repeat';
+import { el } from './icons';
 import { renderUpgradeTab } from './UpgradeTab';
 import './styles/gauntlet.css';
 import './styles/upgrade.css';
 
-/** 轉換動作：A／D 一次一隻，Q／W 一次兩隻（推演手套 Lv2） */
-export type ConvertDir = 'toBiped' | 'toQuad' | 'pairToBiped' | 'pairToQuad';
-
-/** 面板需要的資料 */
+/** 推演分頁需要的資料（推演手套只是思考工具：只顯示，不改變艙裡的生物） */
 export interface PanelView {
-  biped: number;
-  quad: number;
-  predicted: number;
+  /** 看到的生物 N */
+  n: number;
+  /** 地上的接觸點 L */
   actual: number;
-  /** actual − predicted */
-  diff: number;
-  /** 能量條的滿格值 */
+  /** 能量條的滿格值（全部是獵獸時的接觸點） */
   barMax: number;
-  solved: boolean;
-  canToBiped: boolean;
-  canToQuad: boolean;
-  /** 手套 Lv2 以上才有 Q／W；null 表示還沒解鎖 */
-  pair: { size: number; canToBiped: boolean; canToQuad: boolean } | null;
-  /** 手套 Lv3：顯示算式提示 */
-  formula: boolean;
-  /** 已經掃描過地面（不需要掃描的關卡固定 true）。false 時地上的接觸點顯示「？？」、按鈕停用 */
+  /** 偵察體有幾隻腳 */
+  bipedLegs: number;
+  /** 已經掃描過地面（不需要掃描的關卡固定 true）。false 時推演分頁只顯示「先掃描地面才能推演」 */
   scanned: boolean;
+  /** 手套 Lv2 的試算；null = 還沒解鎖 */
+  trial: { left: number; result: { hunters: number; points: number } | null } | null;
+  /** 手套 Lv3：顯示提示句 */
+  stepHint: boolean;
 }
 
 export type PanelTab = 'deduce' | 'upgrade';
 
 export interface PanelCallbacks {
-  /** 回傳 true 表示有實際轉換（可以繼續連發） */
-  onConvert(dir: ConvertDir): boolean;
+  /** 送出試算（獵獸數）；由 Game 檢查次數、算結果後再 render */
+  onTrial(hunters: number): void;
   /** 點升級卡片或在升級分頁按 Enter（目標等級） */
   onUpgrade(level: number): void;
   onExit(): void;
 }
 
-/**
- * 「提示：把偵察體變成獵獸，每變一隻接觸點 +2」提示句。
- * 注意：原始規格是「不顯示每換一隻差 2 之類的提示，讓玩家自己發現」；2026-10-22 使用者要求加上。
- * 改成 false 就拿掉提示句。
- */
-export const SHOW_STEP_HINT = true;
-
-const GOAL_TEXT = '目標：算出來的接觸點要達到地上的接觸點，才能開啟大門';
+const GOAL_TEXT = '目標：算出偵察體和獵獸各有幾隻，到大門輸入封印解除碼';
+const NEAR_POD_TEXT = '靠近封印艙才能推演';
 const SCAN_FIRST_TEXT = '先掃描地面才能推演';
-
-const KEYS: Record<string, ConvertDir> = {
-  KeyA: 'toBiped',
-  ArrowLeft: 'toBiped',
-  KeyD: 'toQuad',
-  ArrowRight: 'toQuad',
-  KeyQ: 'pairToBiped',
-  KeyW: 'pairToQuad',
-};
-
-const DIRS: readonly ConvertDir[] = ['toBiped', 'toQuad', 'pairToBiped', 'pairToQuad'];
+/** 手套 Lv3 的提示句（Lv1、Lv2 不顯示） */
+const STEP_HINT_TEXT = '提示：把偵察體變成獵獸，每變一隻接觸點 +2';
 
 /**
  * 推演手套的全像面板（DOM）。頂端「推演／升級」分頁（Tab 切換）。
- * 左鍵轉雙足、右鍵轉四足，和鍵位方向一致；Lv2 的 Q／W 放在 A／D 外側。
+ * 推演分頁固定顯示假設法第一步：假設都是偵察體 → 推演的接觸點 → 地上的接觸點 → 還差幾個。
+ * 手套 Lv2 多一個「試算」（每關 1 次），Lv3 多一行提示句。不顯示任何除法算式或答案。
  */
 export class GauntletPanel {
   private readonly root: HTMLElement;
-  private readonly repeat: Record<ConvertDir, RepeatTimer>;
-  private readonly btn: Record<ConvertDir, HTMLButtonElement>;
   private open_ = false;
-  private heldKey: string | null = null;
-  private heldPointer: number | null = null;
   private tab: PanelTab = 'deduce';
-  private canDeduce = true;
-  /** 還沒掃描地面：推演按鈕停用 */
-  private locked = false;
   private view: PanelView | null = null;
   private upgrade = { level: 1, chips: 0 };
+  /** 試算輸入框目前的數字 */
+  private trialValue = 0;
 
   constructor(
     parent: HTMLElement,
@@ -92,74 +66,48 @@ export class GauntletPanel {
       </div>
       <div class="g-page g-page-deduce">
         <div class="g-head"><span class="g-title"><i class="g-dot"></i><span class="g-title-text">推演模式</span></span></div>
-        <div class="g-nodeduce hidden">靠近封印艙才能推演</div>
+        <div class="g-nodeduce hidden"></div>
         <div class="g-deduce-body">
           <div class="g-goal">${GOAL_TEXT}</div>
-          <div class="g-hyp"></div>
-          <div class="g-counts">
-            <span class="g-count biped">${ICONS.scout}<span>偵察體<small>兩隻腳</small></span><b></b></span>
-            <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四隻腳</small></span><b></b></span>
+          <div class="g-seen"></div>
+          <div class="g-step pred">
+            <div class="g-step-text"></div>
+            <div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div>
           </div>
-          <div class="g-bars">
-            <div class="g-row act"><label>地上的接觸點</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
-            <div class="g-row pred"><label>推演的接觸點</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
+          <div class="g-step act">
+            <div class="g-step-text"></div>
+            <div class="g-bar"><i class="fill"></i></div>
           </div>
-          <div class="g-diff"><span class="g-diff-text"></span><small class="g-hint"></small><small class="g-formula"></small></div>
-        </div>
-        <div class="g-buttons">
-          <button class="g-btn g-pair pair-to-biped hidden" type="button" data-dir="pairToBiped"><kbd class="desktop-only">Q</kbd><span class="g-btn-label"><span>變回</span><span>兩隻</span></span></button>
-          <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>把一隻獵獸</span><span>變回偵察體</span></span><kbd class="desktop-only">A</kbd></button>
-          <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>把一隻偵察體</span><span>變為獵獸</span></span><span class="g-btn-arrow">▶</span></button>
-          <button class="g-btn g-pair pair-to-quad hidden" type="button" data-dir="pairToQuad"><kbd class="desktop-only">W</kbd><span class="g-btn-label"><span>變為</span><span>兩隻</span></span></button>
+          <div class="g-diff"><span class="g-diff-text"></span><small class="g-hint"></small></div>
+          <div class="g-trial hidden">
+            <div class="g-trial-row">
+              <span>如果獵獸有</span>
+              <button class="g-trial-minus" type="button" aria-label="減一">−</button>
+              <output class="g-trial-value">0</output>
+              <button class="g-trial-plus" type="button" aria-label="加一">+</button>
+              <span>隻</span>
+              <button class="g-trial-ok" type="button">確認 <kbd class="desktop-only">Enter</kbd></button>
+            </div>
+            <div class="g-trial-result hidden">
+              <div class="g-step-text"></div>
+              <div class="g-bar"><i class="fill"></i></div>
+            </div>
+            <div class="g-trial-used hidden">本關試算已用完</div>
+          </div>
         </div>
       </div>
       <div class="g-page g-page-upgrade hidden"></div>`,
     );
     parent.appendChild(this.root);
 
-    this.repeat = Object.fromEntries(DIRS.map((d) => [d, new RepeatTimer(() => this.cb.onConvert(d))])) as Record<
-      ConvertDir,
-      RepeatTimer
-    >;
-    this.btn = {
-      toBiped: this.root.querySelector('.to-biped')!,
-      toQuad: this.root.querySelector('.to-quad')!,
-      pairToBiped: this.root.querySelector('.pair-to-biped')!,
-      pairToQuad: this.root.querySelector('.pair-to-quad')!,
-    };
-
-    for (const dir of DIRS) {
-      const b = this.btn[dir];
-      b.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        if (this.heldPointer !== null || b.disabled) return;
-        this.heldPointer = e.pointerId;
-        try {
-          b.setPointerCapture(e.pointerId);
-        } catch {
-          /* 合成事件或已失效的 pointer 無法 capture，不影響操作 */
-        }
-        b.classList.add('down');
-        this.repeat[dir].press(performance.now());
-      });
-      const up = (e: PointerEvent) => {
-        if (e.pointerId !== this.heldPointer) return;
-        this.heldPointer = null;
-        b.classList.remove('down');
-        this.repeat[dir].release();
-      };
-      b.addEventListener('pointerup', up);
-      b.addEventListener('pointercancel', up);
-      b.addEventListener('lostpointercapture', up);
-      b.addEventListener('contextmenu', (e) => e.preventDefault());
-    }
     this.root.querySelector('.g-exit')!.addEventListener('click', () => this.cb.onExit());
     this.root.querySelectorAll<HTMLButtonElement>('.g-tab').forEach((t) =>
       t.addEventListener('click', () => this.setTab(t.dataset.tab as PanelTab)),
     );
+    this.root.querySelector('.g-trial-minus')!.addEventListener('click', () => this.setTrialValue(this.trialValue - 1));
+    this.root.querySelector('.g-trial-plus')!.addEventListener('click', () => this.setTrialValue(this.trialValue + 1));
+    this.root.querySelector('.g-trial-ok')!.addEventListener('click', () => this.submitTrial());
     window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-    window.addEventListener('blur', () => this.releaseAll());
   }
 
   get isOpen(): boolean {
@@ -184,23 +132,14 @@ export class GauntletPanel {
    */
   open(view: PanelView | null, tab: PanelTab = view ? 'deduce' : 'upgrade'): void {
     this.open_ = true;
-    this.canDeduce = view !== null;
     this.root.dataset.side = this.side;
     this.root.classList.remove('hidden', 'closing');
-    if (view) this.render(view);
-    this.root.querySelector('.g-nodeduce')!.classList.toggle('hidden', this.canDeduce);
-    this.root.querySelector('.g-deduce-body')!.classList.toggle('hidden', !this.canDeduce);
-    this.applyDisabled();
+    this.render(view);
     this.setTab(tab);
-  }
-
-  private applyDisabled(): void {
-    for (const d of DIRS) this.btn[d].disabled = !this.canDeduce || this.locked;
   }
 
   close(): void {
     this.open_ = false;
-    this.releaseAll();
     this.root.classList.add('closing');
     window.setTimeout(() => {
       if (!this.open_) this.root.classList.add('hidden');
@@ -213,7 +152,6 @@ export class GauntletPanel {
 
   setTab(tab: PanelTab): void {
     this.tab = tab;
-    this.releaseAll();
     this.root.dataset.tab = tab;
     this.root.querySelector('.g-page-deduce')!.classList.toggle('hidden', tab !== 'deduce');
     this.root.querySelector('.g-page-upgrade')!.classList.toggle('hidden', tab !== 'upgrade');
@@ -225,7 +163,6 @@ export class GauntletPanel {
   setUpgradeState(level: number, chips: number): void {
     this.upgrade = { level, chips };
     if (this.open_ && this.tab === 'upgrade') this.renderUpgrade();
-    if (this.view) this.render({ ...this.view });
   }
 
   private renderUpgrade(): void {
@@ -241,92 +178,70 @@ export class GauntletPanel {
     this.root.classList.add('upgrade-flash');
   }
 
-  tick(now: number): void {
-    if (!this.open_) return;
-    for (const d of DIRS) this.repeat[d].tick(now);
-  }
-
-  render(v: PanelView): void {
+  render(v: PanelView | null): void {
     this.view = v;
-    this.locked = !v.scanned;
-    this.applyDisabled();
     const r = this.root;
-    const dir = !v.scanned ? 'locked' : v.diff > 0 ? 'under' : v.diff < 0 ? 'over' : 'match';
-    r.dataset.dir = dir;
-    r.classList.toggle('solved', v.solved);
-    r.querySelector('.g-title-text')!.textContent = v.solved ? '封印解除' : '推演模式';
-    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : GOAL_TEXT;
-    r.querySelector('.g-hyp')!.textContent =
-      v.quad === 0 ? `你的猜法：${v.biped} 隻都是兩隻腳` : `你的猜法：${v.biped} 隻兩隻腳、${v.quad} 隻四隻腳`;
-    r.querySelector('.biped b')!.textContent = String(v.biped);
-    r.querySelector('.quad b')!.textContent = String(v.quad);
+    const note = r.querySelector<HTMLElement>('.g-nodeduce')!;
+    const body = r.querySelector<HTMLElement>('.g-deduce-body')!;
+    const blocked = v === null ? NEAR_POD_TEXT : !v.scanned ? SCAN_FIRST_TEXT : null;
+    note.textContent = blocked ?? '';
+    note.classList.toggle('hidden', blocked === null);
+    body.classList.toggle('hidden', blocked !== null);
+    if (!v || blocked) return;
 
+    const assumed = v.n * v.bipedLegs;
+    const diff = v.actual - assumed;
     const pct = (x: number) => `${Math.max(0, Math.min(100, (x / v.barMax) * 100))}%`;
-    const pred = r.querySelector('.pred')!;
-    const act = r.querySelector('.act')!;
-    pred.querySelector<HTMLElement>('.fill')!.style.width = pct(v.predicted);
-    // 還沒掃描：地上的接觸點未知（「？？」、能量條空白、預測條上不標差距）
-    act.querySelector<HTMLElement>('.fill')!.style.width = v.scanned ? pct(v.actual) : '0%';
+    r.querySelector('.g-seen')!.innerHTML = `看到的生物：<b>${v.n}</b> 隻`;
+
+    const pred = r.querySelector('.g-step.pred')!;
+    pred.querySelector('.g-step-text')!.innerHTML = `假設 ${v.n} 隻都是偵察體 → 推演的接觸點 <b>${assumed}</b>`;
+    pred.querySelector<HTMLElement>('.fill')!.style.width = pct(assumed);
     const gap = pred.querySelector<HTMLElement>('.gap')!;
-    gap.style.left = pct(Math.min(v.predicted, v.actual));
-    gap.style.width = v.scanned ? pct(Math.abs(v.diff)) : '0%';
-    const mark = pred.querySelector<HTMLElement>('.mark')!;
-    mark.style.left = pct(v.actual);
-    mark.style.visibility = v.scanned ? '' : 'hidden';
-    pred.querySelector('output')!.textContent = String(v.predicted);
-    act.querySelector('output')!.textContent = v.scanned ? String(v.actual) : '？？';
+    gap.style.left = pct(Math.min(assumed, v.actual));
+    gap.style.width = pct(Math.abs(diff));
+    pred.querySelector<HTMLElement>('.mark')!.style.left = pct(v.actual);
 
-    // 差距的文字與顏色狀態（顏色由 data-dir 控制：under／over = 橘、match = 綠，見 gauntlet.css）
-    const diffText = r.querySelector('.g-diff-text')!;
+    const act = r.querySelector('.g-step.act')!;
+    act.querySelector('.g-step-text')!.innerHTML = `地上的接觸點 <b>${v.actual}</b>`;
+    act.querySelector<HTMLElement>('.fill')!.style.width = pct(v.actual);
+
+    r.querySelector('.g-diff-text')!.innerHTML = `還差 <b>${diff}</b> 個接觸點`;
     const hint = r.querySelector<HTMLElement>('.g-hint')!;
-    const formula = r.querySelector<HTMLElement>('.g-formula')!;
-    const abs = Math.abs(v.diff);
-    if (dir === 'locked') {
-      diffText.textContent = SCAN_FIRST_TEXT;
-      hint.textContent = '';
-    } else if (dir === 'match') {
-      diffText.innerHTML = '<b>符合！</b>';
-      hint.textContent = '';
-    } else if (dir === 'under') {
-      diffText.innerHTML = `還差 <b>${v.diff}</b> 個接觸點`;
-      hint.textContent = SHOW_STEP_HINT ? '提示：把偵察體變成獵獸，每變一隻接觸點 +2' : '';
-    } else {
-      diffText.innerHTML = `多了 <b>${abs}</b> 個接觸點`;
-      hint.textContent = SHOW_STEP_HINT ? '提示：把獵獸變回偵察體，每變一隻接觸點 −2' : '';
-    }
-    hint.hidden = !hint.textContent;
-    // 手套 Lv3 的算式提示（差值為 0 時不顯示）
-    formula.textContent =
-      v.formula && (dir === 'under' || dir === 'over') ? `${dir === 'under' ? '還差' : '多了'} ${abs}，${abs} ÷ 2 = ${abs / 2} 隻` : '';
-    formula.hidden = !formula.textContent;
+    hint.textContent = v.stepHint ? STEP_HINT_TEXT : '';
+    hint.hidden = !v.stepHint;
 
-    this.btn.toBiped.classList.toggle('dim', !v.canToBiped);
-    this.btn.toQuad.classList.toggle('dim', !v.canToQuad);
-    const hasPair = v.pair !== null;
-    r.querySelector('.g-buttons')!.classList.toggle('with-pair', hasPair);
-    r.dataset.pair = hasPair ? '1' : '0';
-    this.btn.pairToBiped.classList.toggle('hidden', !hasPair);
-    this.btn.pairToQuad.classList.toggle('hidden', !hasPair);
-    this.btn.pairToBiped.classList.toggle('dim', !v.pair?.canToBiped);
-    this.btn.pairToQuad.classList.toggle('dim', !v.pair?.canToQuad);
-    if (v.solved) this.releaseAll();
+    // 手套 Lv2：試算
+    const trial = r.querySelector<HTMLElement>('.g-trial')!;
+    trial.classList.toggle('hidden', v.trial === null);
+    if (v.trial) {
+      const used = v.trial.left <= 0;
+      this.setTrialValue(v.trial.result?.hunters ?? (used ? this.trialValue : 0));
+      trial.classList.toggle('used', used);
+      trial.querySelectorAll<HTMLButtonElement>('.g-trial-row button').forEach((b) => (b.disabled = used));
+      trial.querySelector('.g-trial-used')!.classList.toggle('hidden', !used);
+      const res = trial.querySelector<HTMLElement>('.g-trial-result')!;
+      res.classList.toggle('hidden', v.trial.result === null);
+      if (v.trial.result) {
+        res.querySelector('.g-step-text')!.innerHTML = `這樣推演出來的接觸點是 <b>${v.trial.result.points}</b>`;
+        res.querySelector<HTMLElement>('.fill')!.style.width = pct(v.trial.result.points);
+      }
+    }
   }
 
-  /** 每次轉換時讓數字跳一下 */
-  pulse(): void {
-    const d = this.root.querySelector('.g-diff')!;
-    d.classList.remove('bump');
-    void (d as HTMLElement).offsetWidth;
-    d.classList.add('bump');
+  private setTrialValue(n: number): void {
+    const max = this.view?.n ?? 0;
+    this.trialValue = Math.max(0, Math.min(max, n));
+    this.root.querySelector('.g-trial-value')!.textContent = String(this.trialValue);
   }
 
-  private releaseAll(): void {
-    for (const d of DIRS) {
-      this.repeat[d].release();
-      this.btn[d].classList.remove('down');
-    }
-    this.heldKey = null;
-    this.heldPointer = null;
+  private trialReady(): boolean {
+    const v = this.view;
+    return this.open_ && this.tab === 'deduce' && !!v && v.scanned && !!v.trial && v.trial.left > 0;
+  }
+
+  private submitTrial(): void {
+    if (this.trialReady()) this.cb.onTrial(this.trialValue);
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
@@ -341,28 +256,29 @@ export class GauntletPanel {
       if (!e.repeat) this.setTab(this.tab === 'deduce' ? 'upgrade' : 'deduce');
       return;
     }
+    const enter = e.code === 'Enter' || e.code === 'NumpadEnter';
     if (this.tab === 'upgrade') {
-      if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !e.repeat) {
+      if (enter && !e.repeat) {
         e.preventDefault();
         this.cb.onUpgrade(this.upgrade.level + 1);
       }
       return;
     }
-    const dir = KEYS[e.code];
-    if (!dir || !this.canDeduce || this.locked) return;
-    if ((dir === 'pairToBiped' || dir === 'pairToQuad') && this.btn[dir].classList.contains('hidden')) return;
-    e.preventDefault();
-    if (e.repeat || this.heldKey) return; // 連發由 RepeatTimer 處理，忽略系統的按鍵重複
-    this.heldKey = e.code;
-    this.btn[dir].classList.add('down');
-    this.repeat[dir].press(performance.now());
-  };
-
-  private onKeyUp = (e: KeyboardEvent) => {
-    if (e.code !== this.heldKey) return;
-    const dir = KEYS[e.code];
-    this.heldKey = null;
-    this.btn[dir].classList.remove('down');
-    this.repeat[dir].release();
+    // 推演分頁：數字鍵輸入試算的獵獸數，Backspace 刪一位，Enter 確認
+    if (!this.trialReady()) return;
+    const digit = /^(Digit|Numpad)(\d)$/.exec(e.code);
+    if (digit) {
+      e.preventDefault();
+      const d = Number(digit[2]);
+      // 可以打兩位數（例如 10 隻）；超過 N 就從這一位重新開始
+      const two = this.trialValue * 10 + d;
+      this.setTrialValue(this.trialValue > 0 && two <= this.view!.n ? two : d);
+    } else if (e.code === 'Backspace') {
+      e.preventDefault();
+      this.setTrialValue(Math.floor(this.trialValue / 10));
+    } else if (enter && !e.repeat) {
+      e.preventDefault();
+      this.submitTrial();
+    }
   };
 }

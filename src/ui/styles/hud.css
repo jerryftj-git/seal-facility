@@ -141,6 +141,14 @@
   border-radius: 8px;
 }
 
+/* 目標文字最多兩行（太長就截斷），不會往下長到蓋住畫面中間 */
+.hud-objective span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .hud-objective small {
   flex: none;
   padding: 2px 8px;
@@ -190,7 +198,10 @@
   .hud-objective {
     top: calc(64px + var(--safe-t));
     max-width: calc(100vw - 32px);
-    font-size: 15px;
+    gap: 8px;
+    padding: 7px 12px;
+    font-size: 14px;
+    line-height: 1.35;
   }
 }
 

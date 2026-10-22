@@ -1,5 +1,5 @@
 export interface Interactable {
-  id: 'pod' | 'chest' | 'chip' | 'scan';
+  id: 'pod' | 'chest' | 'chip' | 'scan' | 'keypad';
   /** 屬於第幾關（區段） */
   level: number;
   /** 互動提示文字 */

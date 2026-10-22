@@ -39,9 +39,18 @@ export type SavedGrade = 'S' | 'A' | 'B';
 export interface LevelSave {
   /** 掃描台已掃描（這一輪有效；重新開始時清掉） */
   scanned: boolean;
-  /** 最近一次的評級與步數 */
+  /**
+   * 這一關目前題目的地上接觸點（答錯換題後是新的 L；null = 還沒換題，用關卡資料的 L）。
+   * 存起來是為了：答錯後重新整理，不能回到原題再猜一次。這一輪有效。
+   */
+  currentL: number | null;
+  /** 這一關觸發過警報（評級最高 B）。這一輪有效。 */
+  alarmed: boolean;
+  /** 這一關目前送出過幾次封印解除碼（答錯後重新整理，結算的嘗試次數才算得對）。這一輪有效。 */
+  attempts: number;
+  /** 最近一次的評級與嘗試次數（送出封印解除碼的次數） */
   lastGrade: SavedGrade | null;
-  lastSteps: number | null;
+  lastAttempts: number | null;
   /** 最佳評級（只會被更好的評級覆蓋） */
   bestGrade: SavedGrade | null;
 }
@@ -56,7 +65,7 @@ export function betterGrade(a: SavedGrade | null, b: SavedGrade | null): SavedGr
 }
 
 export function defaultLevelSave(): LevelSave {
-  return { scanned: false, lastGrade: null, lastSteps: null, bestGrade: null };
+  return { scanned: false, currentL: null, alarmed: false, attempts: 0, lastGrade: null, lastAttempts: null, bestGrade: null };
 }
 
 /** 取得（必要時建立）某一關的存檔 */
@@ -65,19 +74,24 @@ export function levelSave(data: SaveData, level: number): LevelSave {
 }
 
 /** 記錄一關的結果：最近一次直接覆蓋，最佳只在更好時覆蓋 */
-export function recordLevelResult(data: SaveData, level: number, grade: SavedGrade, steps: number): LevelSave {
+export function recordLevelResult(data: SaveData, level: number, grade: SavedGrade, attempts: number): LevelSave {
   const ls = levelSave(data, level);
   ls.lastGrade = grade;
-  ls.lastSteps = steps;
+  ls.lastAttempts = attempts;
   ls.bestGrade = betterGrade(ls.bestGrade, grade);
   return ls;
 }
 
-/** 開始新的一輪（從第一關）：晶片、手套、隱藏晶片、評級保留；本輪進度清掉 */
+/** 開始新的一輪（從第一關）：晶片、手套、隱藏晶片、評級保留；本輪進度（掃描、換過的題目、警報）清掉 */
 export function resetRun(data: SaveData): void {
   data.currentLevel = 1;
   data.runChips = 0;
-  for (const ls of Object.values(data.levels)) ls.scanned = false;
+  for (const ls of Object.values(data.levels)) {
+    ls.scanned = false;
+    ls.currentL = null;
+    ls.alarmed = false;
+    ls.attempts = 0;
+  }
 }
 
 export type KV = Pick<Storage, 'getItem' | 'setItem'>;
@@ -133,8 +147,12 @@ export function loadSave(storage: KV | null = defaultStorage(), maxGloveLevel = 
         const lv = v as Partial<LevelSave>;
         s.levels[k] = {
           scanned: lv.scanned === true,
+          currentL: typeof lv.currentL === 'number' ? int(lv.currentL, 0, 9999, 0) : null,
+          alarmed: lv.alarmed === true,
+          attempts: int(lv.attempts, 0, 999, 0),
           lastGrade: isGrade(lv.lastGrade) ? lv.lastGrade : null,
-          lastSteps: typeof lv.lastSteps === 'number' ? int(lv.lastSteps, 0, 99999, 0) : null,
+          // 舊版存的是「步數」（lastSteps），意思不同，直接不讀
+          lastAttempts: typeof lv.lastAttempts === 'number' ? int(lv.lastAttempts, 0, 99999, 0) : null,
           bestGrade: isGrade(lv.bestGrade) ? lv.bestGrade : null,
         };
       }

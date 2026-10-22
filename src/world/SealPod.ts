@@ -49,7 +49,7 @@ export class SealPod {
    */
   constructor(
     private readonly assets: AssetLoader,
-    private readonly readings: { N: number; L: number },
+    private readings: { N: number; L: number },
     hideL = false,
   ) {
     this.object = assets.get('seal_pod').scene;
@@ -179,6 +179,24 @@ export class SealPod {
     sweep.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
     mat.dispose();
     sheetMat.dispose();
+  }
+
+  /**
+   * 重新佈署生物（答錯換題）：N 不變、換成新的 L。艙體閃一下、讀數跳成新數字。
+   * showL：已經掃描過（或不需要掃描）才顯示數字，不然維持「？？」。
+   */
+  async redeploy(tweens: Tweens, readings: { N: number; L: number }, showL: boolean): Promise<void> {
+    this.readings = readings;
+    const mat = this.glass?.material as THREE.MeshStandardMaterial | undefined;
+    await tweens.to(0.9, (t) => {
+      const flash = Math.sin(t * Math.PI);
+      if (mat) mat.emissiveIntensity = 1 + flash * 2.5;
+      this.light.intensity = 6 + flash * 10;
+      // 數字亂跳一陣，最後停在新的 L
+      if (showL) this.readoutL.set(t < 0.85 ? 2 * Math.floor(Math.random() * (readings.N + 1)) + 2 * readings.N : readings.L, CYAN);
+    });
+    this.light.intensity = 6;
+    this.readoutL.set(showL ? readings.L : null, CYAN);
   }
 
   /** 已經掃描過（存檔）：直接顯示接觸點 */

@@ -23,6 +23,9 @@ export class LightPool {
   private readonly sources: THREE.PointLight[] = [];
   private readonly slots: PoolSlot[] = [];
   private readonly tmp = new THREE.Vector3();
+  /** 警報時把燈染成這個顏色（tintAmount 0..1） */
+  private readonly tint = new THREE.Color(0xff2a1a);
+  private tintAmount = 0;
 
   constructor(size: number) {
     for (let i = 0; i < size; i++) {
@@ -30,6 +33,11 @@ export class LightPool {
       this.object.add(light);
       this.slots.push({ light, source: null, fade: 0 });
     }
+  }
+
+  /** 警報：0 = 原本的顏色，1 = 全紅 */
+  setTint(amount: number): void {
+    this.tintAmount = amount;
   }
 
   add(...sources: (THREE.PointLight | null)[]): void {
@@ -75,6 +83,7 @@ export class LightPool {
     }
     s.getWorldPosition(p.light.position);
     p.light.color.copy(s.color);
+    if (this.tintAmount > 0) p.light.color.lerp(this.tint, this.tintAmount);
     p.light.distance = s.distance;
     p.light.decay = s.decay;
     p.light.intensity = s.intensity * p.fade;
