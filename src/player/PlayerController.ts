@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from '../core/Collision';
 import type { LoadedAsset } from '../assets/AssetLoader';
-import { blendToward, findClipIndex, locomotionWeights } from './locomotion';
+import { blendToward, findClipIndex, locomotionMix, RUN_SPEED } from './locomotion';
 
-const SPEED = 4.2;
+const SPEED = RUN_SPEED;
 const ACCEL = 18;
 const TURN_SPEED = 12;
 export const PLAYER_RADIUS = 0.35;
@@ -22,8 +22,10 @@ export class PlayerController {
   private model: THREE.Object3D;
   private mixer: THREE.AnimationMixer | null = null;
   private idleAction: THREE.AnimationAction | null = null;
+  private walkAction: THREE.AnimationAction | null = null;
   private runAction: THREE.AnimationAction | null = null;
-  private runBlend = 0;
+  /** 平滑過的速度（m/s），動畫混合用 */
+  private animSpeed = 0;
   private bobT = 0;
 
   constructor(asset: LoadedAsset) {
@@ -33,22 +35,23 @@ export class PlayerController {
     this.setupAnimations(asset.animations);
   }
 
-  /** 有 idle / run 剪輯就用 AnimationMixer 混合播放；沒有動畫就維持佔位的晃動效果 */
+  /** 有 idle / walk / run 剪輯就用 AnimationMixer 依速度混合；沒有動畫就維持佔位的晃動效果 */
   private setupAnimations(clips: readonly THREE.AnimationClip[]): void {
     if (clips.length === 0) return;
     const names = clips.map((c) => c.name);
-    const idle = findClipIndex(names, 'idle');
-    // run 找不到時接受 walk（舊命名）
-    const runIdx = findClipIndex(names, 'run');
-    const run = runIdx >= 0 ? runIdx : findClipIndex(names, 'walk');
     this.mixer = new THREE.AnimationMixer(this.model);
-    if (idle >= 0) this.idleAction = this.mixer.clipAction(clips[idle]);
-    if (run >= 0) this.runAction = this.mixer.clipAction(clips[run]);
-    if (!this.idleAction && !this.runAction) {
-      console.warn(`[PlayerController] 探員動畫沒有 idle / run，改為循環播放第一個剪輯「${clips[0].name}」`);
+    const action = (name: string) => {
+      const i = findClipIndex(names, name);
+      return i >= 0 ? this.mixer!.clipAction(clips[i]) : null;
+    };
+    this.idleAction = action('idle');
+    this.walkAction = action('walk');
+    this.runAction = action('run');
+    if (!this.idleAction && !this.walkAction && !this.runAction) {
+      console.warn(`[PlayerController] 探員動畫沒有 idle / walk / run，改為循環播放第一個剪輯「${clips[0].name}」`);
       this.idleAction = this.mixer.clipAction(clips[0]);
     }
-    for (const a of [this.idleAction, this.runAction]) {
+    for (const a of [this.idleAction, this.walkAction, this.runAction]) {
       if (!a) continue;
       a.setLoop(THREE.LoopRepeat, Infinity);
       a.play();
@@ -110,15 +113,15 @@ export class PlayerController {
 
   private animate(dt: number, speed01: number): void {
     if (this.mixer) {
-      // 只有一種剪輯時就一直播它；兩種都有時依速度混合
-      const target = speed01 > 0.08 ? 1 : 0;
-      this.runBlend = blendToward(this.runBlend, target, dt);
-      const w = locomotionWeights(this.runBlend, speed01);
-      if (this.idleAction && this.runAction) {
-        this.idleAction.setEffectiveWeight(w.idle);
-        this.runAction.setEffectiveWeight(w.run);
-        this.runAction.setEffectiveTimeScale(w.runTimeScale);
-      }
+      this.animSpeed = blendToward(this.animSpeed, speed01 * SPEED, dt);
+      const mix = locomotionMix(this.animSpeed, {
+        idle: !!this.idleAction,
+        walk: !!this.walkAction,
+        run: !!this.runAction,
+      });
+      this.idleAction?.setEffectiveWeight(mix.idle);
+      this.walkAction?.setEffectiveWeight(mix.walk).setEffectiveTimeScale(mix.walkTimeScale);
+      this.runAction?.setEffectiveWeight(mix.run).setEffectiveTimeScale(mix.runTimeScale);
       this.mixer.update(dt);
       return;
     }
@@ -129,11 +132,12 @@ export class PlayerController {
   }
 
   /** 除錯用：目前的混合狀態 */
-  debugBlend(): { run: number; idleWeight: number | null; runWeight: number | null } {
+  debugBlend(): { speed: number; idle: number | null; walk: number | null; run: number | null } {
     return {
-      run: this.runBlend,
-      idleWeight: this.idleAction?.getEffectiveWeight() ?? null,
-      runWeight: this.runAction?.getEffectiveWeight() ?? null,
+      speed: this.animSpeed,
+      idle: this.idleAction?.getEffectiveWeight() ?? null,
+      walk: this.walkAction?.getEffectiveWeight() ?? null,
+      run: this.runAction?.getEffectiveWeight() ?? null,
     };
   }
 }

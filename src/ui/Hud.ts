@@ -48,7 +48,7 @@ export class Hud {
     this.hints.innerHTML =
       mode === 'touch'
         ? `<span>${ICONS.joystick}移動</span><span>${ICONS.drag}拖曳視角</span><span>${ICONS.button}互動</span>`
-        : `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動</span><span>${ICONS.mouse}視角</span><span><kbd>E</kbd> 互動</span><span><kbd>Esc</kbd> 解除滑鼠</span>`;
+        : `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動</span><span><kbd>Shift</kbd> 慢走</span><span>${ICONS.mouse}視角</span><span><kbd>E</kbd> 互動</span><span><kbd>Esc</kbd> 解除滑鼠</span>`;
     this.hints.classList.remove('hidden', 'fade');
     window.clearTimeout(this.hintTimer);
     this.hintTimer = window.setTimeout(() => this.hints.classList.add('fade'), seconds * 1000);

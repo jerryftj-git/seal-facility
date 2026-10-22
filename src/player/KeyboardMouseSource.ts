@@ -1,4 +1,8 @@
 import type { Input } from './Input';
+import { RUN_SPEED, WALK_SPEED } from './locomotion';
+
+/** 按住 Shift 時的移動幅度（慢走） */
+const WALK_INPUT = WALK_SPEED / RUN_SPEED;
 
 const MOVE_KEYS: Record<string, [number, number]> = {
   KeyW: [0, 1],
@@ -59,12 +63,25 @@ export class KeyboardMouseSource {
         }
       }
     }
-    this.input.setKeyboardMove(Math.sign(x), Math.sign(y));
+    let mx = Math.sign(x);
+    let my = Math.sign(y);
+    const len = Math.hypot(mx, my);
+    if (len > 0) {
+      // 斜向移動不加速；按住 Shift 慢走
+      const k = (this.held.has('ShiftLeft') || this.held.has('ShiftRight') ? WALK_INPUT : 1) / len;
+      mx *= k;
+      my *= k;
+    }
+    this.input.setKeyboardMove(mx, my);
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (MOVE_KEYS[e.code] || e.code === 'KeyE') this.input.setMode('desktop');
     if (!this.enabled) return;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      this.held.add(e.code);
+      this.sync();
+    }
     if (MOVE_KEYS[e.code]) {
       this.held.add(e.code);
       this.sync();
