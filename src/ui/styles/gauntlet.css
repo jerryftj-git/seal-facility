@@ -27,6 +27,11 @@
   --accent: var(--green);
 }
 
+/* 背景不透明一點：場景裡的燈條、管線不會從面板後面透出來擋到文字 */
+.gauntlet.holo {
+  background: rgba(6, 16, 23, 0.93);
+}
+
 .gauntlet[data-side='right'] {
   top: 50%;
   right: calc(16px + var(--safe-r));
@@ -318,6 +323,18 @@
   opacity: 0.32;
 }
 
+/* 按鈕文字固定斷成兩行（「轉換一隻為」／「兩隻腳」），不讓瀏覽器隨意斷成三行 */
+.g-btn-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.3;
+}
+
+.g-btn-label > span {
+  white-space: nowrap;
+}
+
 .g-btn-arrow {
   color: var(--cyan);
 }
@@ -346,5 +363,14 @@
   }
   .g-diff b {
     font-size: 32px;
+  }
+}
+
+/* 窄螢幕（手機）：按鈕字小一點，五個字才放得進一行 */
+@media (max-width: 480px) {
+  .g-btn {
+    gap: 4px;
+    padding: 8px 6px;
+    font-size: 14px;
   }
 }

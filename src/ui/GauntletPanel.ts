@@ -52,20 +52,20 @@ export class GauntletPanel {
         <span class="g-title"><i class="g-dot"></i><span class="g-title-text">推演模式</span></span>
         <button class="g-exit" type="button">離開 <kbd class="desktop-only">E</kbd></button>
       </div>
-      <div class="g-goal">目標：讓「預測觸地」和「實際觸地」一樣多</div>
+      <div class="g-goal">目標：讓「預測腳印」和「實際腳印」一樣多</div>
       <div class="g-hyp"></div>
       <div class="g-counts">
-        <span class="g-count biped">${ICONS.scout}<span>偵察體<small>雙足</small></span><b></b></span>
-        <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四足</small></span><b></b></span>
+        <span class="g-count biped">${ICONS.scout}<span>偵察體<small>兩隻腳</small></span><b></b></span>
+        <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四隻腳</small></span><b></b></span>
       </div>
       <div class="g-bars">
-        <div class="g-row pred"><label>預測觸地</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
-        <div class="g-row act"><label>實際觸地</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
+        <div class="g-row pred"><label>預測腳印</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
+        <div class="g-row act"><label>實際腳印</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
       </div>
       <div class="g-diff"><span class="g-arrow"></span><span>差</span><b></b></div>
       <div class="g-buttons">
-        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span>轉換一隻為雙足</span><kbd class="desktop-only">A</kbd></button>
-        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span>轉換一隻為四足</span><span class="g-btn-arrow">▶</span></button>
+        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>轉換一隻為</span><span>兩隻腳</span></span><kbd class="desktop-only">A</kbd></button>
+        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>轉換一隻為</span><span>四隻腳</span></span><span class="g-btn-arrow">▶</span></button>
       </div>`,
     );
     parent.appendChild(this.root);
@@ -155,9 +155,9 @@ export class GauntletPanel {
     r.dataset.dir = dir;
     r.classList.toggle('solved', v.solved);
     r.querySelector('.g-title-text')!.textContent = v.solved ? '封印解除' : '推演模式';
-    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : '目標：讓「預測觸地」和「實際觸地」一樣多';
+    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : '目標：讓「預測腳印」和「實際腳印」一樣多';
     r.querySelector('.g-hyp')!.textContent =
-      v.quad === 0 ? '假設：全部為雙足' : v.biped === 0 ? '假設：全部為四足' : `假設：雙足 ${v.biped}・四足 ${v.quad}`;
+      v.quad === 0 ? '假設：全部是兩隻腳' : v.biped === 0 ? '假設：全部是四隻腳' : `假設：兩隻腳 ${v.biped}・四隻腳 ${v.quad}`;
     r.querySelector('.biped b')!.textContent = String(v.biped);
     r.querySelector('.quad b')!.textContent = String(v.quad);
 
