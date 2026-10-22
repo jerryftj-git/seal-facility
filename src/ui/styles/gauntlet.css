@@ -115,6 +115,22 @@
   border-color: var(--cyan-dim);
 }
 
+.g-goal {
+  padding: 8px 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+  background: rgba(46, 230, 240, 0.08);
+  border-left: 3px solid var(--cyan);
+  border-radius: 4px;
+}
+
+.solved .g-goal {
+  color: var(--green);
+  border-left-color: var(--green);
+  background: rgba(61, 255, 138, 0.08);
+}
+
 .g-hyp {
   font-size: 18px;
   font-weight: 600;

@@ -7,6 +7,8 @@ export class Hud {
   readonly root = el('div', 'hud');
   private readonly chip = el('div', 'hud-chip holo', `${ICONS.chip}<span>資料晶片</span><b>×0</b>`);
   private readonly prompt = el('div', 'hud-prompt holo desktop-only hidden');
+  private readonly objective = el('div', 'hud-objective holo hidden', '<small></small><span></span>');
+  private readonly help = el('button', 'hud-help holo', '？');
   private readonly hints = el('div', 'hud-hints hidden');
   private readonly pause = el(
     'div',
@@ -18,10 +20,28 @@ export class Hud {
   constructor(
     parent: HTMLElement,
     onResume: () => void,
+    onHelp: () => void,
   ) {
-    this.root.append(this.chip, this.prompt, this.hints, this.pause);
+    this.root.append(this.chip, this.objective, this.help, this.prompt, this.hints, this.pause);
     parent.appendChild(this.root);
     this.pause.addEventListener('click', onResume);
+    this.help.type = 'button';
+    this.help.title = '任務說明';
+    this.help.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onHelp();
+    });
+  }
+
+  /** 畫面上方的任務目標；step 為 null 時隱藏 */
+  setObjective(step: number | null, total: number, html = ''): void {
+    this.objective.classList.toggle('hidden', step === null);
+    if (step === null) return;
+    this.objective.querySelector('small')!.textContent = `目標 ${step}/${total}`;
+    this.objective.querySelector('span')!.innerHTML = html;
+    this.objective.classList.remove('bump');
+    void this.objective.offsetWidth;
+    this.objective.classList.add('bump');
   }
 
   setChips(n: number, pulse = false): void {

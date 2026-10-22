@@ -1,0 +1,118 @@
+.briefing {
+  z-index: 25;
+}
+
+.briefing .briefing-box {
+  align-items: stretch;
+  gap: 16px;
+  width: min(620px, 100%);
+  text-align: left;
+}
+
+.briefing-box .sub,
+.briefing-box h2 {
+  text-align: center;
+}
+
+.briefing-box h2 {
+  margin: 0;
+  font-size: clamp(22px, 3.4vw, 28px);
+  letter-spacing: 0.08em;
+}
+
+.brief-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-steps li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.brief-steps i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #031015;
+  background: var(--cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(46, 230, 240, 0.5);
+}
+
+.brief-steps b {
+  display: block;
+  font-size: 19px;
+}
+
+.brief-steps small {
+  display: block;
+  margin-top: 3px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.brief-steps small b,
+.brief-tip b {
+  display: inline;
+  font-size: inherit;
+  color: var(--cyan);
+}
+
+.brief-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 20px;
+  padding: 12px;
+  font-size: 14px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--cyan-faint);
+  border-bottom: 1px solid var(--cyan-faint);
+}
+
+.brief-controls span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brief-controls svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--cyan);
+  fill: none;
+  stroke-width: 1.6;
+}
+
+.briefing-box .btn-primary {
+  align-self: center;
+}
+
+.brief-tip {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+@media (max-height: 640px) {
+  .briefing-box {
+    gap: 10px;
+    padding: 20px 24px;
+  }
+  .brief-steps small {
+    font-size: 14px;
+  }
+}

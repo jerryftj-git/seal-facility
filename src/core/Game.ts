@@ -22,6 +22,7 @@ import { PlayerController } from '../player/PlayerController';
 import { ThirdPersonCamera, type CameraPose } from '../player/ThirdPersonCamera';
 import { FpsMeter } from '../ui/FpsMeter';
 import { GauntletPanel, type ConvertDir, type PanelView } from '../ui/GauntletPanel';
+import { showBriefing } from '../ui/Briefing';
 import { Hud } from '../ui/Hud';
 import { hasSeenIntro, markIntroSeen } from '../ui/introMemory';
 import { playIntro } from '../ui/IntroSequence';
@@ -33,10 +34,14 @@ import { nearestInteractable, type Interactable } from './Interactables';
 import { LAYOUT, Level } from './Level';
 import { Loop } from './Loop';
 import { PALETTE } from './palette';
+import { Waypoint } from '../world/Waypoint';
 import { createRenderer } from './Renderer';
 import { ease, Tweens } from './Tweens';
 
-export type GameState = 'loading' | 'title' | 'explore' | 'deduction' | 'cinematic' | 'result';
+export type GameState = 'loading' | 'title' | 'briefing' | 'explore' | 'deduction' | 'cinematic' | 'result';
+
+/** 任務進度：決定畫面上方的目標文字與 ◆ 標記的位置 */
+type Objective = 'pod' | 'solve' | 'chest' | 'done';
 
 /** 里程碑 1：雙足 = 偵察體、四足 = 獵獸 */
 const BIPED = SCOUT.id;
@@ -73,13 +78,19 @@ export class Game {
   private realTime = 0;
   private near: Interactable | null = null;
   private followPose: CameraPose | null = null;
+  private objective: Objective = 'pod';
+  private readonly waypoint = new Waypoint();
 
   constructor(container: HTMLElement) {
     this.input = new Input(detectInitialMode());
     this.renderer = createRenderer(container, this.input.mode === 'touch');
     this.ui = document.getElementById('ui')!;
     this.kbm = new KeyboardMouseSource(this.input, this.renderer.domElement);
-    this.hud = new Hud(this.ui, () => this.kbm.requestLock());
+    this.hud = new Hud(
+      this.ui,
+      () => this.kbm.requestLock(),
+      () => void this.openHelp(),
+    );
     this.touch = new TouchControls(this.ui, this.input);
     this.panel = new GauntletPanel(this.ui, {
       onConvert: (dir) => this.onConvert(dir),
@@ -95,6 +106,7 @@ export class Game {
     this.scene.background = new THREE.Color(PALETTE.background);
     this.scene.fog = new THREE.FogExp2(PALETTE.fog, 0.06);
 
+    this.scene.add(this.waypoint.object);
     this.applyMode(this.input.mode);
     this.input.onModeChange((m) => this.applyMode(m));
     window.addEventListener('pointerdown', (e) => {
@@ -127,10 +139,38 @@ export class Game {
       });
       markIntroSeen();
     }
+    this.state = 'briefing';
+    await showBriefing(this.ui, this.input.mode);
     this.audio.startHum();
     this.enterExplore();
     this.hud.setVisible(true);
+    this.setObjective(this.objective);
     this.hud.showHints(this.input.mode);
+  }
+
+  /** 右上角「？」：遊戲中重看任務簡報 */
+  private async openHelp(): Promise<void> {
+    if (this.state !== 'explore') return;
+    this.state = 'briefing';
+    this.kbm.exitLock();
+    this.input.reset();
+    this.syncControls();
+    await showBriefing(this.ui, this.input.mode);
+    this.enterExplore();
+  }
+
+  private setObjective(o: Objective): void {
+    this.objective = o;
+    const press = this.input.mode === 'touch' ? '按<b>互動鍵</b>' : '按 <kbd>E</kbd>';
+    const text: Record<Objective, [number | null, string, THREE.Vector3 | null]> = {
+      pod: [1, `走到<b>封印艙</b>，靠近後${press}打開推演手套`, new THREE.Vector3(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z)],
+      solve: [2, `用推演手套讓<b>「預測觸地」和「實際觸地」一樣多</b>`, new THREE.Vector3(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z)],
+      chest: [3, `穿過大門，打開走廊盡頭的<b>寶箱</b>`, new THREE.Vector3(LAYOUT.chest.x, 1.5, LAYOUT.chest.z)],
+      done: [null, '', null],
+    };
+    const [step, html, target] = text[o];
+    this.hud.setObjective(step, 3, html);
+    this.waypoint.set(target);
   }
 
   private newRun(): void {
@@ -161,6 +201,7 @@ export class Game {
     this.chips = 0;
     this.hud.setChips(0);
     this.worldTime = 0;
+    this.setObjective('pod');
   }
 
   private retry(): void {
@@ -202,6 +243,7 @@ export class Game {
     this.kbm.setEnabled(false);
     this.kbm.exitLock();
     this.syncControls();
+    if (this.objective === 'pod') this.setObjective('solve');
     this.audio.uiOpen();
     this.panel.open(this.panelView());
     this.rig.focus = this.deductionPose();
@@ -319,6 +361,7 @@ export class Game {
     await tweens.wait(0.4);
 
     await this.leaveFocus(1.0);
+    this.setObjective('chest');
     this.enterExplore();
   }
 
@@ -334,6 +377,7 @@ export class Game {
     await this.hud.flyChip(x, y);
     this.chips += 1;
     this.hud.setChips(this.chips, true);
+    this.setObjective('done');
     await this.tweens.wait(2.0);
     this.showResult();
   }
@@ -367,6 +411,7 @@ export class Game {
 
     this.level.update(timeFlows ? dt : 0, this.worldTime);
     this.level.holo.update(dt, this.realTime);
+    this.waypoint.update(this.realTime, this.player.position, this.camera, this.state === 'explore');
 
     // 特寫時把探員藏起來，避免擋住艙體
     this.player.object.visible = this.rig.weight < 0.5 || !this.rig.focus;
@@ -397,6 +442,7 @@ export class Game {
 
   private applyMode(mode: InputMode): void {
     document.body.dataset.mode = mode;
+    if (this.state !== 'loading' && this.state !== 'title') this.setObjective(this.objective);
     if (mode === 'touch') this.kbm.exitLock();
     this.syncControls();
   }

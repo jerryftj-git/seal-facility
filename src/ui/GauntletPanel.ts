@@ -52,6 +52,7 @@ export class GauntletPanel {
         <span class="g-title"><i class="g-dot"></i><span class="g-title-text">推演模式</span></span>
         <button class="g-exit" type="button">離開 <kbd class="desktop-only">E</kbd></button>
       </div>
+      <div class="g-goal">目標：讓「預測觸地」和「實際觸地」一樣多</div>
       <div class="g-hyp"></div>
       <div class="g-counts">
         <span class="g-count biped">${ICONS.scout}<span>偵察體<small>雙足</small></span><b></b></span>
@@ -154,6 +155,7 @@ export class GauntletPanel {
     r.dataset.dir = dir;
     r.classList.toggle('solved', v.solved);
     r.querySelector('.g-title-text')!.textContent = v.solved ? '封印解除' : '推演模式';
+    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : '目標：讓「預測觸地」和「實際觸地」一樣多';
     r.querySelector('.g-hyp')!.textContent =
       v.quad === 0 ? '假設：全部為雙足' : v.biped === 0 ? '假設：全部為四足' : `假設：雙足 ${v.biped}・四足 ${v.quad}`;
     r.querySelector('.biped b')!.textContent = String(v.biped);

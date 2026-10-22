@@ -125,3 +125,71 @@
     top 0.75s cubic-bezier(0.6, -0.4, 0.4, 1),
     transform 0.75s;
 }
+
+.hud-objective {
+  position: absolute;
+  top: calc(14px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(640px, calc(100vw - 260px));
+  padding: 9px 18px;
+  font-size: 17px;
+  line-height: 1.4;
+  border-radius: 8px;
+}
+
+.hud-objective small {
+  flex: none;
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #031015;
+  background: var(--cyan);
+  border-radius: 4px;
+}
+
+.hud-objective b {
+  color: var(--cyan);
+}
+
+.hud-objective.bump {
+  animation: objective-in 0.6s ease-out;
+}
+
+@keyframes objective-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+    box-shadow: 0 0 0 0 rgba(46, 230, 240, 0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    box-shadow: 0 0 0 12px rgba(46, 230, 240, 0);
+  }
+}
+
+.hud-help {
+  position: absolute;
+  top: calc(14px + var(--safe-t));
+  right: calc(16px + var(--safe-r));
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--cyan);
+  border-radius: 50%;
+}
+
+@media (max-width: 700px) {
+  .hud-objective {
+    top: calc(64px + var(--safe-t));
+    max-width: calc(100vw - 32px);
+    font-size: 15px;
+  }
+}

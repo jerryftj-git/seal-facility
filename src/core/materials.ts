@@ -98,3 +98,88 @@ export function applyMaterial(root: THREE.Object3D, material: THREE.Material): v
 export function glowMaterial(color: THREE.ColorRepresentation, opacity = 1): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, fog: true });
 }
+
+let toonRamp: THREE.DataTexture | null = null;
+
+/** 卡通明暗的色階：三段柔和的階梯（暗部不全黑） */
+function toonGradient(): THREE.DataTexture {
+  if (toonRamp) return toonRamp;
+  const steps = [110, 175, 235, 255];
+  const data = new Uint8Array(steps.length * 4);
+  steps.forEach((v, i) => data.set([v, v, v, 255], i * 4));
+  toonRamp = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);
+  toonRamp.minFilter = THREE.NearestFilter;
+  toonRamp.magFilter = THREE.NearestFilter;
+  toonRamp.needsUpdate = true;
+  return toonRamp;
+}
+
+export interface SoftToonOptions {
+  /** 最暗會被抬到這個顏色（黑色戰鬥服 → 柔和的藍灰） */
+  shadowTint?: THREE.ColorRepresentation;
+  /** 最亮會被壓到這個顏色（純白盔甲 → 暖奶油白） */
+  lightTint?: THREE.ColorRepresentation;
+  /** 飽和度（1 = 不變） */
+  saturation?: number;
+  /** 貼圖自發光量，暗場景裡仍看得清楚 */
+  selfLight?: number;
+  rimColor?: THREE.ColorRepresentation;
+  rimIntensity?: number;
+}
+
+/**
+ * 柔和的卡通著色（參考「曠野之息」那種低對比、粉彩的色調）：
+ * - 三段色階明暗（MeshToonMaterial）
+ * - 貼圖顏色壓縮到 [shadowTint, lightTint] 之間：黑不死黑、白不刺眼，和暗背景的對比變小
+ * - 稍微降低飽和度，加一圈暖色邊緣光
+ */
+export function softToonMaterial(src: THREE.Material, opt: SoftToonOptions = {}): THREE.MeshToonMaterial {
+  const s = src as THREE.MeshStandardMaterial;
+  const mat = new THREE.MeshToonMaterial({
+    map: s.map ?? null,
+    color: s.color?.clone() ?? new THREE.Color(0xffffff),
+    gradientMap: toonGradient(),
+    transparent: s.transparent,
+    opacity: s.opacity,
+    side: s.side,
+  });
+  if (s.map) {
+    mat.emissiveMap = s.map;
+    mat.emissive.setScalar(opt.selfLight ?? 0.22);
+  }
+  const uniforms = {
+    uShadowTint: { value: new THREE.Color(opt.shadowTint ?? 0x4b4a52) },
+    uLightTint: { value: new THREE.Color(opt.lightTint ?? 0xf2e8d5) },
+    uSaturation: { value: opt.saturation ?? 0.85 },
+    uRimColor: { value: new THREE.Color(opt.rimColor ?? 0xffe2b8) },
+    uRimIntensity: { value: opt.rimIntensity ?? 0.35 },
+  };
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform vec3 uShadowTint;
+        uniform vec3 uLightTint;
+        uniform float uSaturation;
+        uniform vec3 uRimColor;
+        uniform float uRimIntensity;
+        vec3 softGrade(vec3 c) {
+          float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+          c = mix(vec3(l), c, uSaturation);
+          return mix(uShadowTint, uLightTint, c);
+        }`,
+      )
+      .replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb = softGrade(diffuseColor.rgb);')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        totalEmissiveRadiance = softGrade(totalEmissiveRadiance / max(emissive.r, 1e-4)) * emissive.r;
+        float rimF = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 2.4);
+        totalEmissiveRadiance += uRimColor * rimF * uRimIntensity;`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'softToon';
+  return mat;
+}
