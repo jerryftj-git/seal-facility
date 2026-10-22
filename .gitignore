@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# AI 生成的中間檔（很大，不進版本控制）
+art/generated/

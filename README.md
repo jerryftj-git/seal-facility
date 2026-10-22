@@ -95,7 +95,10 @@ npm run dev
 
 ### 探員模型規格（含骨架動畫）
 
-目前的探員是 Mixamo 的 **Beta** 角色（`Standard Walk` + `Standard Run`），由下面的轉換腳本產生。
+目前的探員是從概念圖 `art/concepts/sheets/agent_turnaround.jpg` 用 AI 生成的 3D 角色，動作是 Mixamo 的
+Standard Walk／Standard Run 重定向上去的（流程見下方「從概念圖做出探員」）。
+對照圖：`art/concepts/agent_compare.png`。上一版（Mixamo Beta 人偶）備份在 `art/backup/agent_mixamo_beta.glb`，
+複製回 `public/models/agent.glb` 就能換回去（記得把 `src/player/locomotion.ts` 的 `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` 改回 1.56／4.4）。
 
 | 項目 | 規格 |
 |---|---|
@@ -110,6 +113,42 @@ npm run dev
 - 播放速度會依實際移動速度調整，讓腳步對得上地面。動畫原本的步伐速度寫在 `src/player/locomotion.ts` 的 `WALK_CLIP_SPEED`、`RUN_CLIP_SPEED`；換成步伐差很多的動畫時改這兩個數字。
 - 名稱不分大小寫，也接受 `Armature|run` 這種格式。缺 `walk` 時用 `run` 代替，反之亦然；缺 `idle` 時停下會凍結在當下的姿勢。
 - 推演模式（時間停止）時動畫會凍結。
+
+#### 從概念圖做出探員（AI 生成 → 綁骨 → 套 Mixamo 動作）
+
+需要本機的 Hunyuan3D 2.1 環境（`~/tools/hy3d-venv`）、Blender 4.4 以上，以及 `godot-ai-3d-assets` 技能的腳本。
+在專案根目錄依序執行：
+
+1. 轉面圖放進 `art/concepts/sheets/`，在 `art/concepts/crops.json` 寫正面那一格的範圍（比例 0～1），然後切圖去背：
+
+```bash
+~/tools/hy3d-venv/bin/python ~/.claude/skills/godot-ai-3d-assets/scripts/ai3d/prep_concepts.py agent
+```
+
+2. 生成網格＋貼圖（約 3 分鐘，GPU 一次只跑一件事）：
+
+```bash
+FACES=16000 ~/.claude/skills/godot-ai-3d-assets/scripts/ai3d/run_all.sh agent
+```
+
+3. 綁骨（骨架位置從網格量：手、手臂中心線、胯下、腿；概念圖要是 A 字或 T 字站姿）：
+
+```bash
+blender -b --python tools/rig-agent.py -- art/generated/agent_tex/agent_textured.obj art/generated/rig/agent_rest.glb
+```
+
+4. 把 Mixamo 動畫重定向上去、縮放 1.8 m、貼地、面向 −Z、匯出：
+
+```bash
+blender -b --python tools/retarget-agent.py -- --rig art/generated/rig/agent_rest.glb --walk "$HOME/下載/Standard Walk.fbx" --run "$HOME/下載/Standard Run.fbx" --out public/models/agent.glb
+```
+
+   最後會印出「步幅比例」：把 `src/player/locomotion.ts` 的 `WALK_CLIP_SPEED`／`RUN_CLIP_SPEED` 設成
+   1.56 × 比例、4.4 × 比例，腳步才不會打滑。
+5. 檢查：`blender -b -P ~/.claude/skills/godot-ai-3d-assets/scripts/preview/check_glb.py -- public/models/agent.glb /tmp/check.json`，
+   各動作的「最大拉長」應在 10 公分左右以內、最低點約 0。
+
+`art/generated/` 是中間檔（很大），不進版本控制。
 
 #### 從 Mixamo 換一個探員（自動轉換腳本）
 

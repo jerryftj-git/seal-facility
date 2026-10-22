@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 
 /**
- * 帶「發光邊緣」的標準材質：在 emissive 加上 fresnel 項，不需要 bloom 等後處理。
+ * 在既有的標準材質上加 fresnel「發光邊緣」（不需要 bloom 等後處理）。
+ * glb 匯入的角色材質也能用，讓暗色角色在暗場景裡輪廓清楚。
  */
-export function rimMaterial(
-  params: THREE.MeshStandardMaterialParameters & { rimColor: THREE.ColorRepresentation; rimPower?: number; rimIntensity?: number },
+export function addRim(
+  mat: THREE.MeshStandardMaterial,
+  rimColor: THREE.ColorRepresentation,
+  rimPower = 2.5,
+  rimIntensity = 1.2,
 ): THREE.MeshStandardMaterial {
-  const { rimColor, rimPower = 2.5, rimIntensity = 1.2, ...rest } = params;
-  const mat = new THREE.MeshStandardMaterial(rest);
   const uniforms = {
     uRimColor: { value: new THREE.Color(rimColor) },
     uRimPower: { value: rimPower },
@@ -29,7 +31,16 @@ export function rimMaterial(
       );
   };
   mat.customProgramCacheKey = () => 'rim';
+  mat.needsUpdate = true;
   return mat;
+}
+
+/** 帶「發光邊緣」的標準材質 */
+export function rimMaterial(
+  params: THREE.MeshStandardMaterialParameters & { rimColor: THREE.ColorRepresentation; rimPower?: number; rimIntensity?: number },
+): THREE.MeshStandardMaterial {
+  const { rimColor, rimPower = 2.5, rimIntensity = 1.2, ...rest } = params;
+  return addRim(new THREE.MeshStandardMaterial(rest), rimColor, rimPower, rimIntensity);
 }
 
 const HOLO_VERT = /* glsl */ `

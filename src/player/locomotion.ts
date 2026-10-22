@@ -10,10 +10,11 @@ export const WALK_SPEED = 1.6;
 /**
  * 動畫剪輯「原本」的步伐速度（m/s）。播放速度會依實際移動速度等比調整，
  * 讓腳步和地面對得上。換成步伐差很多的動畫時改這裡。
- * （目前的值量自 Mixamo 的 Standard Walk 與 Standard Run：根骨每個循環前進的距離 ÷ 循環時間。）
+ * 目前的探員：Mixamo Standard Walk（1.56 m/s）／Standard Run（4.4 m/s）重定向到 AI 生成的角色，
+ * 腿長是 Mixamo 角色的 0.8 倍，步幅等比縮小（tools/retarget-agent.py 會印出「步幅比例」）。
  */
-export const WALK_CLIP_SPEED = 1.56;
-export const RUN_CLIP_SPEED = 4.4;
+export const WALK_CLIP_SPEED = 1.25;
+export const RUN_CLIP_SPEED = 3.52;
 
 /**
  * 依名稱找動畫剪輯，不分大小寫。也接受 Blender 匯出常見的「物件名|動作名」，

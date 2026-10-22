@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from '../core/Collision';
 import type { LoadedAsset } from '../assets/AssetLoader';
+import { addRim } from '../core/materials';
 import { blendToward, findClipIndex, locomotionMix, RUN_SPEED } from './locomotion';
 
 const SPEED = RUN_SPEED;
@@ -13,6 +14,30 @@ export const PLAYER_RADIUS = 0.35;
  * 遊戲內部以 +Z 為前方，所以載入 glb 時把模型轉 180°。
  */
 const AGENT_GLB_YAW = Math.PI;
+
+/**
+ * 讓 glb 角色在暗場景裡看得清楚：
+ * - AI 生成的貼圖常把大片盔甲標成金屬；場景沒有環境反射貼圖，金屬面會幾乎全黑 → 金屬度上限 0.35。
+ * - 深藍色戰鬥服在暗走廊裡會融進背景 → 加一圈淡青色發光邊緣，貼圖本身也微微自發光。
+ */
+const MAX_METALNESS = 0.35;
+
+function readableInDark(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      const std = m as THREE.MeshStandardMaterial;
+      if (!std.isMeshStandardMaterial) continue;
+      std.metalness = Math.min(std.metalness, MAX_METALNESS);
+      if (std.map) {
+        std.emissiveMap = std.map;
+        std.emissive.setScalar(0.18);
+      }
+      addRim(std, 0x5fb8d0, 2.2, 0.55);
+    }
+  });
+}
 
 /** 第三人稱移動：輸入方向以鏡頭為準，角色轉向移動方向 */
 export class PlayerController {
@@ -30,7 +55,10 @@ export class PlayerController {
 
   constructor(asset: LoadedAsset) {
     this.model = asset.scene;
-    if (asset.source === 'glb') this.model.rotation.y = AGENT_GLB_YAW;
+    if (asset.source === 'glb') {
+      this.model.rotation.y = AGENT_GLB_YAW;
+      readableInDark(this.model);
+    }
     this.object.add(this.model);
     this.setupAnimations(asset.animations);
   }
