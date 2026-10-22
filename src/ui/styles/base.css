@@ -12,6 +12,8 @@
   --text-dim: #7d97a6;
   --font: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
   --mono: 'SF Mono', 'Consolas', 'Roboto Mono', ui-monospace, monospace;
+  /* 推演手套等級的顏色（Lv1 青 → Lv2 橘 → Lv3 金），Game 依 GLOVE_UPGRADES 設定 */
+  --glove: #2ee6f0;
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);

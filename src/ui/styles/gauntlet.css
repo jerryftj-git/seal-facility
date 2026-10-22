@@ -395,3 +395,173 @@
 .gauntlet[data-dir='match'] .g-diff b {
   font-size: 34px;
 }
+
+/* ───── 推演手套等級顏色：面板邊框 ───── */
+.gauntlet.holo {
+  border-color: color-mix(in srgb, var(--glove) 65%, transparent);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--glove) 22%, transparent),
+    inset 0 0 32px rgba(46, 230, 240, 0.06);
+}
+
+.gauntlet.upgrade-flash {
+  animation:
+    glove-flash 0.7s ease-out,
+    holo-flicker 4s infinite steps(1);
+}
+
+@keyframes glove-flash {
+  0% {
+    filter: brightness(2.2);
+    box-shadow: 0 0 60px var(--glove);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* ───── 分頁 ───── */
+.g-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.g-tabs > kbd {
+  margin-right: auto;
+  font-size: 11px;
+}
+
+.g-tab {
+  padding: 6px 14px;
+  font-size: 15px;
+  letter-spacing: 0.15em;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--cyan-faint);
+  border-radius: 6px 6px 0 0;
+  border-bottom-color: transparent;
+}
+
+.g-tab.active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--glove) 16%, transparent);
+  border-color: color-mix(in srgb, var(--glove) 60%, transparent);
+}
+
+.g-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.g-page.hidden {
+  display: none;
+}
+
+.gauntlet[data-side='bottom'] .g-page {
+  gap: 10px;
+}
+
+.g-nodeduce {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-dim);
+  border: 1px dashed var(--cyan-faint);
+  border-radius: 6px;
+}
+
+.g-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* ───── Lv2：Q／W 在 A／D 外側 ───── */
+.g-buttons.with-pair {
+  grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr) 58px;
+  gap: 8px;
+}
+
+.g-buttons.with-pair .g-btn-arrow {
+  display: none; /* 空間留給文字；方向由按鈕位置表示 */
+}
+
+.g-pair {
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border-color: color-mix(in srgb, var(--glove) 60%, transparent);
+}
+
+.g-pair .g-btn-label {
+  font-size: 14px;
+}
+
+.g-pair.hidden {
+  display: none;
+}
+
+/* ───── Lv3：算式提示 ───── */
+.g-formula {
+  margin-top: 2px;
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--glove) 14%, transparent);
+  border-radius: 4px;
+}
+
+.g-formula[hidden] {
+  display: none;
+}
+
+/* Lv2 以上多了 Q／W：右側面板加寬，A／D 的鍵位標籤移到角落，不佔橫向空間 */
+.gauntlet[data-side='right'][data-pair='1'] {
+  width: min(440px, 46vw);
+}
+
+.g-buttons.with-pair .g-btn {
+  position: relative;
+  padding: 10px 6px;
+}
+
+.g-buttons.with-pair .g-btn:not(.g-pair) .g-btn-label {
+  font-size: 14px;
+}
+
+.g-buttons.with-pair .g-btn:not(.g-pair) kbd {
+  position: absolute;
+  top: 3px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+.g-buttons.with-pair .to-biped kbd {
+  right: 4px;
+}
+
+.g-buttons.with-pair .to-quad kbd {
+  left: 4px;
+}
+
+/* 手機寬度：Q／W 再窄一點、字再小一點 */
+@media (max-width: 480px) {
+  .g-buttons.with-pair {
+    grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) 46px;
+    gap: 6px;
+  }
+  .g-buttons.with-pair .g-btn:not(.g-pair) .g-btn-label {
+    font-size: 13px;
+  }
+  .g-pair .g-btn-label {
+    font-size: 12px;
+  }
+}
+
+/* 下方版面（直拿／手機）：分頁、提示、算式變多後可能放不下，最高 66% 畫面，超出就可以捲動 */
+.gauntlet[data-side='bottom'] {
+  max-height: 66vh;
+  overflow-y: auto;
+}

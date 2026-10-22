@@ -98,6 +98,18 @@ export class GameAudio {
     this.tone(1320, 0.1, { type: 'triangle', gain: 0.05, delay: 0.08 });
   }
 
+  /** 拾取隱藏晶片 */
+  pickup(): void {
+    [1046, 1318, 1568, 2093].forEach((f, i) => this.tone(f, 0.25, { type: 'triangle', gain: 0.07, delay: i * 0.05 }));
+    this.noise(0.3, { gain: 0.05, freq: 3000, sweepTo: 6000, q: 2 });
+  }
+
+  /** 推演手套升級 */
+  upgrade(): void {
+    this.tone(220, 0.5, { type: 'sawtooth', gain: 0.05, slideTo: 880 });
+    [523, 784, 1046, 1568].forEach((f, i) => this.tone(f, 0.7, { type: 'triangle', gain: 0.09, delay: 0.25 + i * 0.08 }));
+  }
+
   uiOpen(): void {
     this.tone(660, 0.15, { gain: 0.06, slideTo: 990 });
   }

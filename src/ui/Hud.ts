@@ -5,7 +5,12 @@ import './styles/hud.css';
 /** 遊戲中的抬頭顯示：晶片數、互動提示、操作提示、暫停遮罩 */
 export class Hud {
   readonly root = el('div', 'hud');
-  private readonly chip = el('div', 'hud-chip holo', `${ICONS.chip}<span>資料晶片</span><b>×0</b>`);
+  private readonly chip = el(
+    'div',
+    'hud-chip holo',
+    `${ICONS.chip}<span>資料晶片</span><b>×0</b><small class="hud-next"></small>`,
+  );
+  private readonly glove = el('button', 'hud-glove holo touch-only hidden', `${ICONS.button}<span>手套</span>`);
   private readonly prompt = el('div', 'hud-prompt holo desktop-only hidden');
   private readonly objective = el('div', 'hud-objective holo hidden', '<small></small><span></span>');
   private readonly help = el('button', 'hud-help holo', '？');
@@ -21,8 +26,15 @@ export class Hud {
     parent: HTMLElement,
     onResume: () => void,
     onHelp: () => void,
+    onGlove: () => void,
   ) {
-    this.root.append(this.chip, this.objective, this.help, this.prompt, this.hints, this.pause);
+    this.root.append(this.chip, this.objective, this.help, this.glove, this.prompt, this.hints, this.pause);
+    this.glove.type = 'button';
+    this.glove.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onGlove();
+    });
     parent.appendChild(this.root);
     this.pause.addEventListener('click', onResume);
     this.help.type = 'button';
@@ -52,6 +64,24 @@ export class Hud {
       void this.chip.offsetWidth;
       this.chip.classList.add('pulse');
     }
+  }
+
+  /** 晶片右側的小字：「下次升級還需 N 片」／「已全部升級」 */
+  setUpgradeInfo(text: string): void {
+    this.chip.querySelector('.hud-next')!.textContent = text;
+  }
+
+  /** 第一次達到升級門檻：晶片圖示閃爍一次 */
+  blinkChip(): void {
+    const icon = this.chip.querySelector('svg')!;
+    icon.classList.remove('blink');
+    void (icon as unknown as HTMLElement).getBoundingClientRect();
+    icon.classList.add('blink');
+  }
+
+  /** 觸控版的手套按鈕（探索時顯示） */
+  setGloveButton(on: boolean): void {
+    this.glove.classList.toggle('hidden', !on);
   }
 
   chipRect(): DOMRect {

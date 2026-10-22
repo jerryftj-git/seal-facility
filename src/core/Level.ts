@@ -4,6 +4,7 @@ import { CORRIDOR } from '../assets/placeholders/environment';
 import type { Puzzle } from '../puzzle';
 import { Dust, hazardStripes, lightCone } from '../world/Atmosphere';
 import { Beacon } from '../world/Beacon';
+import { HiddenChip, supplyCrates } from '../world/HiddenChip';
 import { Chest } from '../world/Chest';
 import { Door } from '../world/Door';
 import { HoloProjection } from '../world/HoloProjection';
@@ -33,6 +34,12 @@ export const LAYOUT = {
   chest: { x: 0, z: -33 },
   /** 推演模式鏡頭看的位置 */
   podFocus: new THREE.Vector3(-2.0, 1.55, -20),
+  /** 這個房間的 id（存檔記錄隱藏晶片是否已撿） */
+  roomId: 'zone01',
+  /** 補給箱（右牆中段）與藏在後方牆角的晶片（高 1.1 m）。
+   *  從入口直線走到封印艙（x ≈ 0 ～ −0.6）離晶片約 2.6 m，超過 1.5 m 的拾取範圍。 */
+  crates: { x: 2.25, z: -10.3 },
+  hiddenChip: new THREE.Vector3(2.55, 1.1, -11.4),
   /** 開門演出的鏡位 */
   doorShot: { position: new THREE.Vector3(1.9, 2.0, -14.2), target: new THREE.Vector3(-0.2, 1.7, -24) },
 } as const;
@@ -47,9 +54,10 @@ export class Level {
   readonly chest: Chest;
   readonly beacons: Beacon[] = [];
   readonly interactables: Interactable[];
+  readonly hiddenChip: HiddenChip;
   private readonly dust: Dust;
 
-  constructor(assets: AssetLoader, puzzle: Puzzle, initialSlots: readonly string[]) {
+  constructor(assets: AssetLoader, puzzle: Puzzle, initialSlots: readonly string[], hiddenChipPicked = false) {
     const hw = CORRIDOR.width / 2;
     this.world = new CollisionWorld({ minX: -hw, maxX: hw, minZ: LAYOUT.end, maxZ: LAYOUT.start });
 
@@ -147,7 +155,27 @@ export class Level {
     this.dust = new Dust(180, { minX: -hw + 0.3, maxX: hw - 0.3, minZ: LAYOUT.end, maxZ: LAYOUT.start, height: 3.6 });
     this.root.add(this.dust.object);
 
+    // 補給箱與隱藏晶片
+    const crates = supplyCrates();
+    crates.position.set(LAYOUT.crates.x, 0, LAYOUT.crates.z);
+    this.root.add(crates);
+    const cx = LAYOUT.crates.x;
+    const cz = LAYOUT.crates.z;
+    this.world.add({ name: 'crates', minX: cx - 0.6, maxX: hw, minZ: cz - 0.45, maxZ: cz + 0.45, height: 1.4 });
+    this.world.add({ name: 'crateSmall', minX: cx - 0.85, maxX: cx - 0.25, minZ: cz + 0.45, maxZ: cz + 1.05, height: 0.6 });
+    this.hiddenChip = new HiddenChip(LAYOUT.hiddenChip);
+    if (hiddenChipPicked) this.hiddenChip.hide();
+    this.root.add(this.hiddenChip.object);
+
     this.interactables = [
+      {
+        id: 'chip',
+        label: '拾取資料晶片',
+        x: LAYOUT.hiddenChip.x,
+        z: LAYOUT.hiddenChip.z,
+        radius: 1.5,
+        enabled: () => !this.hiddenChip.picked,
+      },
       {
         id: 'pod',
         label: '檢查封印艙',
@@ -174,6 +202,7 @@ export class Level {
     this.pod.update(time);
     this.beacons.forEach((b) => b.update(time));
     this.dust.update(time);
+    this.hiddenChip.update(dt, time);
   }
 
   dispose(): void {

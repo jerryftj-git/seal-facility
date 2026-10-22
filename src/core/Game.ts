@@ -2,18 +2,24 @@ import * as THREE from 'three';
 import { AssetLoader } from '../assets/AssetLoader';
 import { HUNTER, SCOUT } from '../puzzle/species';
 import {
+  apply,
   canConvert,
   convert,
   createDeduction,
+  setTools,
   createRng,
   generatePuzzle,
   PHASE1_CONFIG,
   PHASE1_DEDUCTION,
   rateDeduction,
   type DeductionState,
+  type DeductionTools,
   type Puzzle,
   type Rng,
 } from '../puzzle';
+import { canAffordNext, chipsNeeded, gloveFeatures, levelDef, tryUpgrade } from '../progress/gloveUpgrades';
+import { showToast } from '../ui/Toast';
+import { loadSave, writeSave, type SaveData } from './saveData';
 import { CameraRig } from '../player/CameraRig';
 import { detectInitialMode, type InputMode } from '../player/deviceDetect';
 import { Input } from '../player/Input';
@@ -24,7 +30,6 @@ import { FpsMeter } from '../ui/FpsMeter';
 import { GauntletPanel, type ConvertDir, type PanelView } from '../ui/GauntletPanel';
 import { showBriefing } from '../ui/Briefing';
 import { Hud } from '../ui/Hud';
-import { hasSeenIntro, markIntroSeen } from '../ui/introMemory';
 import { playIntro } from '../ui/IntroSequence';
 import { ResultScreen } from '../ui/ResultScreen';
 import { TitleScreen } from '../ui/TitleScreen';
@@ -40,7 +45,7 @@ import { Waypoint } from '../world/Waypoint';
 import { createRenderer } from './Renderer';
 import { ease, Tweens } from './Tweens';
 
-export type GameState = 'loading' | 'title' | 'briefing' | 'explore' | 'deduction' | 'cinematic' | 'result';
+export type GameState = 'loading' | 'title' | 'briefing' | 'explore' | 'deduction' | 'glove' | 'cinematic' | 'result';
 
 /** 任務進度：決定畫面上方的目標文字與 ◆ 標記的位置 */
 type Objective = 'pod' | 'solve' | 'chest' | 'done';
@@ -75,7 +80,10 @@ export class Game {
   player!: PlayerController;
   puzzle!: Puzzle;
   deduction!: DeductionState;
-  private chips = 0;
+  /** 存檔（晶片數、手套等級、隱藏晶片、一次性提示） */
+  private save: SaveData = loadSave();
+  /** 這一輪拿到的晶片（結算畫面顯示用） */
+  private runChips = 0;
   private worldTime = 0;
   private realTime = 0;
   private near: Interactable | null = null;
@@ -95,11 +103,13 @@ export class Game {
       this.ui,
       () => this.kbm.requestLock(),
       () => void this.openHelp(),
+      () => this.openGlove(),
     );
     this.touch = new TouchControls(this.ui, this.input);
     this.panel = new GauntletPanel(this.ui, {
       onConvert: (dir) => this.onConvert(dir),
-      onExit: () => this.exitDeduction(),
+      onUpgrade: (lv) => this.upgradeGlove(lv),
+      onExit: () => this.closePanel(),
     });
     this.result = new ResultScreen(this.ui, () => this.retry());
 
@@ -124,6 +134,8 @@ export class Game {
     document.addEventListener('pointerlockchange', () => this.refreshPause());
     window.addEventListener('resize', () => this.onResize());
     this.hud.setVisible(false);
+    this.applyGloveTheme();
+    this.refreshChipHud(false);
   }
 
   async init(): Promise<void> {
@@ -131,7 +143,7 @@ export class Game {
     this.newRun();
     this.state = 'title';
     this.loop.start();
-    new TitleScreen(this.ui, hasSeenIntro(), (intro) => void this.start(intro));
+    new TitleScreen(this.ui, this.save.flags.introSeen, (intro) => void this.start(intro));
   }
 
   // ───────────────────────── 流程 ─────────────────────────
@@ -143,7 +155,9 @@ export class Game {
         onType: () => this.audio.typeTick(),
         onMessage: () => this.audio.incoming(),
       });
-      markIntroSeen();
+      // 存檔只由 Game 這一份資料寫入，避免兩個地方各存一份互相覆蓋
+      this.save.flags.introSeen = true;
+      writeSave(this.save);
     }
     this.state = 'briefing';
     await showBriefing(this.ui, this.input.mode);
@@ -192,8 +206,12 @@ export class Game {
     let puzzle = generatePuzzle(PHASE1_CONFIG, this.rng);
     for (let i = 0; i < 5 && JSON.stringify(puzzle.answer) === prev; i++) puzzle = generatePuzzle(PHASE1_CONFIG, this.rng);
     this.puzzle = puzzle;
-    this.deduction = createDeduction(this.puzzle, { ...PHASE1_DEDUCTION, rng: this.rng });
-    this.level = new Level(this.assets, this.puzzle, this.deduction.slots);
+    this.deduction = createDeduction(this.puzzle, {
+      ...PHASE1_DEDUCTION,
+      fixedCounts: this.gloveTools().fixedCounts,
+      rng: this.rng,
+    });
+    this.level = new Level(this.assets, this.puzzle, this.deduction.slots, this.save.roomChips[LAYOUT.roomId] === true);
     this.scene.add(this.level.root);
 
     this.player = new PlayerController(this.assets.get('agent'));
@@ -208,8 +226,8 @@ export class Game {
     this.rig.focus = null;
     this.rig.weight = 0;
     this.rig.offset = { x: 0, y: 0 };
-    this.chips = 0;
-    this.hud.setChips(0);
+    this.runChips = 0;
+    this.refreshChipHud(false);
     this.worldTime = 0;
     this.setObjective('pod');
   }
@@ -244,7 +262,18 @@ export class Game {
       solved: d.solved,
       canToBiped: canConvert(d, QUAD, BIPED),
       canToQuad: canConvert(d, BIPED, QUAD),
+      pair: (() => {
+        const n = gloveFeatures(this.save.gloveLevel).pairConvert;
+        return n ? { size: n, canToBiped: canConvert(d, QUAD, BIPED, n), canToQuad: canConvert(d, BIPED, QUAD, n) } : null;
+      })(),
+      formula: gloveFeatures(this.save.gloveLevel).formulaHint,
     };
+  }
+
+  /** 目前手套等級對應的推演工具（Lv2 起可以一次轉 2 隻） */
+  private gloveTools(): DeductionTools {
+    const n = gloveFeatures(this.save.gloveLevel).pairConvert;
+    return { batch: false, fixedCounts: n ? [n] : [] };
   }
 
   private enterDeduction(): void {
@@ -255,6 +284,7 @@ export class Game {
     this.syncControls();
     if (this.objective === 'pod') this.setObjective('solve');
     this.audio.uiOpen();
+    this.panel.setUpgradeState(this.save.gloveLevel, this.save.chips);
     this.panel.open(this.panelView());
     this.rig.focus = this.deductionPose();
     const fromW = this.rig.weight;
@@ -312,10 +342,36 @@ export class Game {
     return { position, target, fov };
   }
 
+  /** 不在封印艙前按 E（或觸控的手套按鈕）：打開手套，停在「升級」分頁 */
+  private openGlove(): void {
+    if (this.state !== 'explore') return;
+    this.state = 'glove';
+    this.input.reset();
+    this.kbm.setEnabled(false);
+    this.kbm.exitLock();
+    this.syncControls();
+    this.audio.uiOpen();
+    this.panel.setUpgradeState(this.save.gloveLevel, this.save.chips);
+    this.panel.open(null, 'upgrade');
+  }
+
+  /** 面板的「離開」／E／Esc */
+  private closePanel(): void {
+    if (this.state === 'deduction') this.exitDeduction();
+    else if (this.state === 'glove') {
+      this.audio.uiClose();
+      this.panel.close();
+      this.enterExplore();
+    }
+  }
+
   private onConvert(dir: ConvertDir): boolean {
     if (this.state !== 'deduction') return false;
-    const [from, to] = dir === 'toQuad' ? [BIPED, QUAD] : [QUAD, BIPED];
-    const r = convert(this.deduction, from, to);
+    const toQuad = dir === 'toQuad' || dir === 'pairToQuad';
+    const [from, to] = toQuad ? [BIPED, QUAD] : [QUAD, BIPED];
+    const count = dir === 'pairToBiped' || dir === 'pairToQuad' ? (gloveFeatures(this.save.gloveLevel).pairConvert ?? 0) : 1;
+    if (count === 0) return false;
+    const r = count === 1 ? convert(this.deduction, from, to) : apply(this.deduction, { type: 'batch', from, to, count });
     if (r.event === 'blocked') {
       this.audio.blocked();
       return false;
@@ -324,7 +380,7 @@ export class Game {
     this.deduction = r.state;
     r.slots.forEach((slot) => this.level.holo.morph(slot, to));
     // 音高只綁預測值（不可以傳差值或與答案的距離）
-    this.audio.morph(r.state.predicted, dir === 'toQuad');
+    this.audio.morph(r.state.predicted, toQuad);
     this.panel.render(this.panelView());
     this.panel.pulse();
     if (r.event === 'solved') {
@@ -368,7 +424,9 @@ export class Game {
     level.beacons.forEach((b) => b.setClear());
     await level.door.open(tweens, audio);
     level.world.get('door')!.enabled = false;
-    await tweens.wait(0.4);
+    // 開門獎勵：資料晶片 +1（每次重玩都給）
+    this.addChips(1);
+    await tweens.wait(0.6);
 
     await this.leaveFocus(1.0);
     this.setObjective('chest');
@@ -385,8 +443,7 @@ export class Game {
     this.level.chest.chip.visible = false;
     this.audio.chip();
     await this.hud.flyChip(x, y);
-    this.chips += 1;
-    this.hud.setChips(this.chips, true);
+    this.addChips(1);
     this.setObjective('done');
     await this.tweens.wait(2.0);
     this.showResult();
@@ -398,7 +455,7 @@ export class Game {
     this.syncControls();
     this.hud.setVisible(false);
     const { grade, steps } = rateDeduction(this.deduction);
-    this.result.show(steps, grade);
+    this.result.show(steps, grade, this.runChips);
   }
 
   // ───────────────────────── 每幀 ─────────────────────────
@@ -440,13 +497,81 @@ export class Game {
       this.hud.setPrompt(near?.label ?? null);
       this.touch.setInteract(near?.label ?? null);
     }
-    if (this.input.consume('interact') && near) {
+    if (this.input.consume('interact')) {
+      if (!near) {
+        this.openGlove();
+        return;
+      }
       this.near = null;
       this.hud.setPrompt(null);
       this.touch.setInteract(null);
       if (near.id === 'pod') this.enterDeduction();
       else if (near.id === 'chest') void this.openChest();
+      else if (near.id === 'chip') this.pickHiddenChip();
     }
+  }
+
+  // ───────────────────────── 資料晶片與手套升級 ─────────────────────────
+
+  private pickHiddenChip(): void {
+    const chip = this.level.hiddenChip;
+    if (chip.picked) return;
+    chip.pick();
+    this.audio.pickup();
+    this.save.roomChips[LAYOUT.roomId] = true;
+    this.addChips(1);
+  }
+
+  /** 拿到晶片：存檔、HUD 跳動、第一次的提示 */
+  private addChips(n: number): void {
+    this.save.chips += n;
+    this.runChips += n;
+    if (!this.save.flags.firstChipTip) {
+      this.save.flags.firstChipTip = true;
+      showToast(this.ui, '資料晶片可以升級推演手套。按 E 打開手套後按 Tab 查看。', 'tip');
+    }
+    let blink = false;
+    if (!this.save.flags.upgradeReadyBlink && canAffordNext(this.save.gloveLevel, this.save.chips)) {
+      this.save.flags.upgradeReadyBlink = true;
+      blink = true;
+    }
+    writeSave(this.save);
+    this.refreshChipHud(true);
+    if (blink) this.hud.blinkChip();
+    this.panel.setUpgradeState(this.save.gloveLevel, this.save.chips);
+  }
+
+  private refreshChipHud(pulse: boolean): void {
+    this.hud.setChips(this.save.chips, pulse);
+    const need = chipsNeeded(this.save.gloveLevel, this.save.chips);
+    this.hud.setUpgradeInfo(need === null ? '已全部升級' : need === 0 ? '可以升級推演手套了' : `下次升級還需 ${need} 片`);
+  }
+
+  private upgradeGlove(target: number): void {
+    const r = tryUpgrade({ level: this.save.gloveLevel, chips: this.save.chips }, target);
+    if (!r.ok) {
+      this.audio.blocked();
+      return;
+    }
+    this.save.gloveLevel = r.state.level;
+    this.save.chips = r.state.chips;
+    writeSave(this.save);
+    this.applyGloveTheme();
+    this.refreshChipHud(false);
+    this.panel.setUpgradeState(this.save.gloveLevel, this.save.chips);
+    this.panel.flash();
+    this.audio.upgrade();
+    showToast(this.ui, '推演手套升級！', 'float');
+    // 推演中升級：Q／W 立刻可以用，步數與目前的猜法保留
+    this.deduction = setTools(this.deduction, this.gloveTools());
+    if (this.state === 'deduction') this.panel.render(this.panelView());
+  }
+
+  /** 手套 UI 邊框顏色跟著等級（整個遊戲都套用） */
+  private applyGloveTheme(): void {
+    const def = levelDef(this.save.gloveLevel);
+    document.body.style.setProperty('--glove', def.color);
+    document.body.dataset.glove = String(def.level);
   }
 
   // ───────────────────────── 裝置 / 版面 ─────────────────────────
@@ -462,6 +587,7 @@ export class Game {
   private syncControls(): void {
     const exploring = this.state === 'explore';
     this.touch.setVisible(exploring && this.input.mode === 'touch');
+    this.hud.setGloveButton(exploring && this.input.mode === 'touch');
     if (!exploring) {
       this.hud.hideHints();
       this.near = null;

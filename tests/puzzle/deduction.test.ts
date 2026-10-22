@@ -9,6 +9,7 @@ import {
   enumerateCompositions,
   generatePuzzle,
   PHASE1_CONFIG,
+  setTools,
   type DeductionState,
 } from '../../src/puzzle';
 import { makePuzzle, seq, unsolvablePuzzle } from './helpers';
@@ -259,5 +260,43 @@ describe('批次轉換（里程碑 2 手套升級的介面）', () => {
     const done = toHunter(s);
     expect(done.event).toBe('solved');
     expect(done.state.steps).toBe(3);
+  });
+});
+
+describe('一次轉換 2 隻（推演手套 Lv2 的 Q／W）', () => {
+  const pair = { fixedCounts: [2] as const };
+
+  it('沒有升級時不能一次轉 2 隻', () => {
+    const s = createDeduction(makePuzzle(4, 3));
+    expect(() => apply(s, { type: 'batch', from: 'scout', to: 'hunter', count: 2 })).toThrow();
+  });
+
+  it('一次轉 2 隻算 1 步，四足仍然連續', () => {
+    const s = createDeduction(makePuzzle(4, 3), pair);
+    const r = apply(s, { type: 'batch', from: 'scout', to: 'hunter', count: 2 });
+    expect(r.event).toBe('converted');
+    expect(r.slots).toEqual([0, 1]);
+    expect(r.state.steps).toBe(1);
+    expect(r.state.hypothesis).toEqual({ scout: 5, hunter: 2 });
+    expect(convert(r.state, 'scout', 'hunter').event).toBe('solved');
+  });
+
+  it('數量不足 2 隻時被擋下、不計步（按鈕灰掉的依據）', () => {
+    let s = createDeduction(makePuzzle(4, 3), pair);
+    expect(canConvert(s, 'hunter', 'scout', 2)).toBe(false);
+    s = convert(s, 'scout', 'hunter').state;
+    expect(canConvert(s, 'hunter', 'scout', 2)).toBe(false);
+    const r = apply(s, { type: 'batch', from: 'hunter', to: 'scout', count: 2 });
+    expect(r.event).toBe('blocked');
+    expect(r.state.steps).toBe(1);
+  });
+
+  it('中途換工具（升級）保留假設與步數', () => {
+    let s = createDeduction(makePuzzle(4, 3));
+    s = convert(s, 'scout', 'hunter').state;
+    const t = setTools(s, { batch: false, fixedCounts: [2] });
+    expect(t.steps).toBe(1);
+    expect(t.hypothesis).toEqual(s.hypothesis);
+    expect(apply(t, { type: 'batch', from: 'scout', to: 'hunter', count: 2 }).event).toBe('solved');
   });
 });

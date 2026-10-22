@@ -86,3 +86,23 @@ describe('random 起點的評級（繞路）', () => {
     expect(rateDeduction(s)).toEqual({ grade: 'A', steps: 3, min: 1 });
   });
 });
+
+describe('最少步數依手套等級（Lv2 以上 = 隻數 ÷ 2 無條件進位）', () => {
+  const pair = { batch: false, fixedCounts: [2] };
+  it('偶數與奇數', () => {
+    expect(minSteps({ scout: 7, hunter: 0 }, { scout: 3, hunter: 4 }, pair)).toBe(2);
+    expect(minSteps({ scout: 7, hunter: 0 }, { scout: 4, hunter: 3 }, pair)).toBe(2);
+    expect(minSteps({ scout: 7, hunter: 0 }, { scout: 6, hunter: 1 }, pair)).toBe(1);
+  });
+
+  it('用 Q／W 一次到位拿 S；全部用 A／D 會掉到 A', () => {
+    const p = makePuzzle(3, 4);
+    let s = createDeduction(p, { fixedCounts: [2] });
+    s = apply(s, { type: 'batch', from: 'scout', to: 'hunter', count: 2 }).state;
+    s = apply(s, { type: 'batch', from: 'scout', to: 'hunter', count: 2 }).state;
+    expect(rateDeduction(s)).toEqual({ grade: 'S', steps: 2, min: 2 });
+    let t = createDeduction(p, { fixedCounts: [2] });
+    for (let i = 0; i < 4; i++) t = convert(t, 'scout', 'hunter').state;
+    expect(rateDeduction(t)).toEqual({ grade: 'A', steps: 4, min: 2 });
+  });
+});

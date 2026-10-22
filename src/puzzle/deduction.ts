@@ -14,19 +14,23 @@ export interface DeductionOptions {
   readonly startAssumption?: StartAssumption;
   /** 手套是否裝了批次轉換轉盤（里程碑 2 升級） */
   readonly batch?: boolean;
+  /** 固定數量的多隻轉換（推演手套 Lv2 的 Q／W = [2]） */
+  readonly fixedCounts?: readonly number[];
   /** startAssumption = 'random' 時使用，預設 Math.random */
   readonly rng?: Rng;
 }
 
 export interface DeductionTools {
   readonly batch: boolean;
+  /** 允許的固定轉換數量（例如 [2]）；batch 為 true 時任何數量都可以 */
+  readonly fixedCounts?: readonly number[];
 }
 
 /** 玩家的一次操作；每個「有實際轉換」的操作算一步 */
 export type DeductionAction =
   /** 單步：轉換一隻 */
   | { readonly type: 'convert'; readonly from: string; readonly to: string }
-  /** 批次：一次轉換 count 隻（需要 tools.batch） */
+  /** 批次：一次轉換 count 隻（需要 tools.batch，或 count 在 tools.fixedCounts 裡） */
   | { readonly type: 'batch'; readonly from: string; readonly to: string; readonly count: number };
 
 /**
@@ -134,7 +138,7 @@ function withSlots(
 
 export function createDeduction(puzzle: Puzzle, options: DeductionOptions = {}): DeductionState {
   const start = startCounts(puzzle, options.startAssumption ?? 'allBiped', options.rng ?? Math.random);
-  const tools = { batch: options.batch ?? false };
+  const tools: DeductionTools = { batch: options.batch ?? false, fixedCounts: options.fixedCounts ?? [] };
   return withSlots({ puzzle, tools, start, steps: 0 }, layoutSlots(puzzle.species, start));
 }
 
@@ -157,7 +161,9 @@ export function apply(state: DeductionState, action: DeductionAction): ConvertRe
   findSpecies(state.puzzle.species, from);
   findSpecies(state.puzzle.species, to);
   const count = action.type === 'batch' ? action.count : 1;
-  if (action.type === 'batch' && !state.tools.batch) throw new Error('手套沒有批次轉換轉盤');
+  if (action.type === 'batch' && !state.tools.batch && !(state.tools.fixedCounts ?? []).includes(count)) {
+    throw new Error(`手套不能一次轉換 ${count} 隻`);
+  }
   if (!Number.isInteger(count)) throw new Error(`轉換數量必須是整數：${count}`);
 
   if (state.solved) return { state, event: 'locked', slots: [] };
@@ -188,6 +194,11 @@ export function diffDirection(state: Pick<DeductionState, 'diff'>): DiffDirectio
   if (state.diff > 0) return 'under';
   if (state.diff < 0) return 'over';
   return 'match';
+}
+
+/** 換手套工具（例如中途升級）；步數與目前的假設保留 */
+export function setTools(state: DeductionState, tools: DeductionTools): DeductionState {
+  return { ...state, tools };
 }
 
 /** 里程碑 1 的手套設定：從全雙足出發，只有單步轉換 */

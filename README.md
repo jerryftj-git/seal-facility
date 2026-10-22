@@ -177,6 +177,15 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 想手動在 Blender 裡做也可以，重點是：三個動作命名成 `idle`／`walk`／`run`、去掉 Hips 的水平位移、角色繞 Z 軸轉 180°（從前視圖 Numpad 1 看到背面）、匯出 glTF Binary 並帶上動畫。
 
+### 資料晶片與推演手套升級
+
+- **升級樹的數值**（花費、名稱、效果說明、各級邊框顏色）全部在 `src/progress/gloveUpgrades.ts` 的 `GLOVE_UPGRADES`。
+- **晶片來源**：開門 +1、寶箱 +1（每次重玩都給）、每個房間的隱藏晶片 +1（只能拿一次）。隱藏晶片位置在 `src/core/Level.ts` 的 `LAYOUT.hiddenChip`。
+- **存檔**：localStorage，key 集中在 `src/core/saveData.ts` 的 `SAVE_CONFIG`（晶片數、手套等級、各房間隱藏晶片、一次性提示、開場是否看過）。
+  想重新體驗「第一次」：在瀏覽器 Console 執行 `localStorage.removeItem('sealFacility.save.v1')` 後重新整理。
+- 操作：封印艙前按 E 打開推演（推演分頁）；其他地方按 E（觸控版是右上角的「手套」按鈕）打開手套的升級分頁。Tab 切換分頁、升級分頁按 Enter 升級。
+  手套 Lv2 起，推演時 Q／W 一次轉換 2 隻。
+
 ### 主角外觀參數（和場景的融合）
 
 主角的材質色調、青色邊緣光、腳下陰影、環境反射、SSAO、鏡頭距離都集中在 `src/core/agentLook.ts` 的 `AGENT_LOOK`，

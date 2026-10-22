@@ -1,5 +1,5 @@
 export interface Interactable {
-  id: 'pod' | 'chest';
+  id: 'pod' | 'chest' | 'chip';
   /** 互動提示文字 */
   label: string;
   x: number;

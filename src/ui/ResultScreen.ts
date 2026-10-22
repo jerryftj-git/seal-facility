@@ -11,7 +11,7 @@ export class ResultScreen {
     private readonly onRetry: () => void,
   ) {}
 
-  show(steps: number, grade: Grade): void {
+  show(steps: number, grade: Grade, chips = 1): void {
     this.hide();
     const root = el(
       'div',
@@ -22,7 +22,7 @@ export class ResultScreen {
         <div class="grade stamp" data-grade="${grade}">${grade}</div>
         <dl class="result-rows">
           <dt>使用步數</dt><dd>${steps}</dd>
-          <dt>取得</dt><dd style="font-family:var(--font);font-size:18px;color:var(--cyan);display:flex;gap:8px;align-items:center"><span style="width:26px;display:inline-flex">${ICONS.chip}</span>資料晶片 ×1</dd>
+          <dt>取得</dt><dd style="font-family:var(--font);font-size:18px;color:var(--cyan);display:flex;gap:8px;align-items:center"><span style="width:26px;display:inline-flex">${ICONS.chip}</span>資料晶片 ×${chips}</dd>
         </dl>
         <button class="btn-primary" type="button">再次潛入</button>
       </div>`,

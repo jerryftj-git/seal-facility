@@ -9,12 +9,18 @@ export const A_MARGIN = 4;
 /**
  * 從起始假設走到正確組成最少要幾步。
  * - 單步轉換：每隻要換的生物都要一步（兩種生物時 = 起點與答案的四足數之差）
+ * - 固定數量轉換（fixedCounts，例如 [2]）：需要轉的隻數 ÷ 2，無條件進位
  * - 批次轉換：每一對「多的種類 → 少的種類」一次到位。貪婪配對，兩種生物時是精確值。
  */
 export function minSteps(start: Counts, answer: Counts, tools: DeductionTools = { batch: false }): number {
   const ids = Object.keys({ ...start, ...answer });
   const delta = ids.map((id) => (answer[id] ?? 0) - (start[id] ?? 0));
-  if (!tools.batch) return delta.reduce((sum, d) => sum + Math.max(0, d), 0);
+  const single = delta.reduce((sum, d) => sum + Math.max(0, d), 0);
+  if (!tools.batch) {
+    // 固定數量的多隻轉換（手套 Lv2 的 Q／W）：需要轉的隻數 ÷ 最大的固定數量，無條件進位
+    const big = Math.max(1, ...(tools.fixedCounts ?? []));
+    return Math.ceil(single / big);
+  }
 
   const surplus = delta.filter((d) => d < 0).map((d) => -d).sort((a, b) => b - a);
   const deficit = delta.filter((d) => d > 0).sort((a, b) => b - a);

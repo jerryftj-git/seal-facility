@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { hasSeenIntro, INTRO_SEEN_KEY, markIntroSeen } from '../../src/ui/introMemory';
+import { SAVE_CONFIG } from '../../src/core/saveData';
+import { hasSeenIntro, markIntroSeen } from '../../src/ui/introMemory';
 import { INTRO_LINES, INTRO_MAX_CHARS } from '../../src/ui/introScript';
 
 describe('開場文字', () => {
@@ -24,7 +25,7 @@ describe('開場看過的紀錄', () => {
     expect(hasSeenIntro(s)).toBe(false);
     markIntroSeen(s);
     expect(hasSeenIntro(s)).toBe(true);
-    expect(s.getItem(INTRO_SEEN_KEY)).toBe('1');
+    expect(JSON.parse(s.getItem(SAVE_CONFIG.storageKey) ?? '{}').flags.introSeen).toBe(true);
   });
 
   it('沒有 storage 或 storage 丟錯時不會壞掉', () => {
