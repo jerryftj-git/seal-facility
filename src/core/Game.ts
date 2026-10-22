@@ -23,6 +23,8 @@ import { ThirdPersonCamera, type CameraPose } from '../player/ThirdPersonCamera'
 import { FpsMeter } from '../ui/FpsMeter';
 import { GauntletPanel, type ConvertDir, type PanelView } from '../ui/GauntletPanel';
 import { Hud } from '../ui/Hud';
+import { hasSeenIntro, markIntroSeen } from '../ui/introMemory';
+import { playIntro } from '../ui/IntroSequence';
 import { ResultScreen } from '../ui/ResultScreen';
 import { TitleScreen } from '../ui/TitleScreen';
 import { TouchControls } from '../ui/TouchControls';
@@ -111,13 +113,20 @@ export class Game {
     this.newRun();
     this.state = 'title';
     this.loop.start();
-    new TitleScreen(this.ui, () => this.start());
+    new TitleScreen(this.ui, hasSeenIntro(), (intro) => void this.start(intro));
   }
 
   // ───────────────────────── 流程 ─────────────────────────
 
-  private start(): void {
+  private async start(intro: boolean): Promise<void> {
     this.audio.unlock();
+    if (intro) {
+      await playIntro(this.ui, this.input.mode, {
+        onType: () => this.audio.typeTick(),
+        onMessage: () => this.audio.incoming(),
+      });
+      markIntroSeen();
+    }
     this.audio.startHum();
     this.enterExplore();
     this.hud.setVisible(true);

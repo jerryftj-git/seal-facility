@@ -87,6 +87,17 @@ export class GameAudio {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.6, { type: 'triangle', gain: 0.12, delay: i * 0.09 }));
   }
 
+  /** 開場打字音 */
+  typeTick(): void {
+    this.tone(1700 + Math.random() * 300, 0.025, { type: 'square', gain: 0.012 });
+  }
+
+  /** 開場：新訊息進來 */
+  incoming(): void {
+    this.tone(880, 0.08, { type: 'triangle', gain: 0.05 });
+    this.tone(1320, 0.1, { type: 'triangle', gain: 0.05, delay: 0.08 });
+  }
+
   uiOpen(): void {
     this.tone(660, 0.15, { gain: 0.06, slideTo: 990 });
   }
