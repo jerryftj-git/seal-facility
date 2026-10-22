@@ -1,11 +1,18 @@
 import * as THREE from 'three';
 import type { CollisionWorld } from '../core/Collision';
 import type { LoadedAsset } from '../assets/AssetLoader';
+import { blendToward, findClipIndex, locomotionWeights } from './locomotion';
 
 const SPEED = 4.2;
 const ACCEL = 18;
 const TURN_SPEED = 12;
 export const PLAYER_RADIUS = 0.35;
+
+/**
+ * 探員 glb 的約定是面向 −Z（README「探員模型規格」），
+ * 遊戲內部以 +Z 為前方，所以載入 glb 時把模型轉 180°。
+ */
+const AGENT_GLB_YAW = Math.PI;
 
 /** 第三人稱移動：輸入方向以鏡頭為準，角色轉向移動方向 */
 export class PlayerController {
@@ -14,25 +21,46 @@ export class PlayerController {
   facing = Math.PI; // 面向 -Z
   private model: THREE.Object3D;
   private mixer: THREE.AnimationMixer | null = null;
-  private actions: Partial<Record<'idle' | 'walk', THREE.AnimationAction>> = {};
+  private idleAction: THREE.AnimationAction | null = null;
+  private runAction: THREE.AnimationAction | null = null;
+  private runBlend = 0;
   private bobT = 0;
 
   constructor(asset: LoadedAsset) {
     this.model = asset.scene;
+    if (asset.source === 'glb') this.model.rotation.y = AGENT_GLB_YAW;
     this.object.add(this.model);
-    if (asset.animations.length) {
-      this.mixer = new THREE.AnimationMixer(this.model);
-      for (const name of ['idle', 'walk'] as const) {
-        const clip = THREE.AnimationClip.findByName([...asset.animations], name);
-        if (clip) this.actions[name] = this.mixer.clipAction(clip);
-      }
-      this.actions.idle?.play();
-      this.actions.walk?.play();
+    this.setupAnimations(asset.animations);
+  }
+
+  /** 有 idle / run 剪輯就用 AnimationMixer 混合播放；沒有動畫就維持佔位的晃動效果 */
+  private setupAnimations(clips: readonly THREE.AnimationClip[]): void {
+    if (clips.length === 0) return;
+    const names = clips.map((c) => c.name);
+    const idle = findClipIndex(names, 'idle');
+    // run 找不到時接受 walk（舊命名）
+    const runIdx = findClipIndex(names, 'run');
+    const run = runIdx >= 0 ? runIdx : findClipIndex(names, 'walk');
+    this.mixer = new THREE.AnimationMixer(this.model);
+    if (idle >= 0) this.idleAction = this.mixer.clipAction(clips[idle]);
+    if (run >= 0) this.runAction = this.mixer.clipAction(clips[run]);
+    if (!this.idleAction && !this.runAction) {
+      console.warn(`[PlayerController] 探員動畫沒有 idle / run，改為循環播放第一個剪輯「${clips[0].name}」`);
+      this.idleAction = this.mixer.clipAction(clips[0]);
+    }
+    for (const a of [this.idleAction, this.runAction]) {
+      if (!a) continue;
+      a.setLoop(THREE.LoopRepeat, Infinity);
+      a.play();
     }
   }
 
   get position(): THREE.Vector3 {
     return this.object.position;
+  }
+
+  get animated(): boolean {
+    return this.mixer !== null;
   }
 
   place(x: number, z: number, facing: number): void {
@@ -74,22 +102,38 @@ export class PlayerController {
     this.animate(dt, speed / SPEED);
   }
 
-  /** 停在原地（推演或演出時）只做待機動畫 */
+  /** 停在原地（推演或演出時）只做待機動畫；dt = 0 代表時間停止 */
   idle(dt: number): void {
     this.velocity.set(0, 0, 0);
     this.animate(dt, 0);
   }
 
-  private animate(dt: number, run: number): void {
+  private animate(dt: number, speed01: number): void {
     if (this.mixer) {
-      this.actions.walk?.setEffectiveWeight(run);
-      this.actions.idle?.setEffectiveWeight(1 - run);
+      // 只有一種剪輯時就一直播它；兩種都有時依速度混合
+      const target = speed01 > 0.08 ? 1 : 0;
+      this.runBlend = blendToward(this.runBlend, target, dt);
+      const w = locomotionWeights(this.runBlend, speed01);
+      if (this.idleAction && this.runAction) {
+        this.idleAction.setEffectiveWeight(w.idle);
+        this.runAction.setEffectiveWeight(w.run);
+        this.runAction.setEffectiveTimeScale(w.runTimeScale);
+      }
       this.mixer.update(dt);
       return;
     }
-    // 佔位模型：走路時上下晃動、微微前傾
-    this.bobT += dt * (4 + run * 8);
-    this.model.position.y = Math.abs(Math.sin(this.bobT)) * 0.06 * run + Math.sin(this.bobT * 0.3) * 0.01;
-    this.model.rotation.x = run * 0.12;
+    // 沒有動畫的模型：走路時上下晃動、微微前傾
+    this.bobT += dt * (4 + speed01 * 8);
+    this.model.position.y = Math.abs(Math.sin(this.bobT)) * 0.06 * speed01 + Math.sin(this.bobT * 0.3) * 0.01;
+    this.model.rotation.x = speed01 * 0.12;
+  }
+
+  /** 除錯用：目前的混合狀態 */
+  debugBlend(): { run: number; idleWeight: number | null; runWeight: number | null } {
+    return {
+      run: this.runBlend,
+      idleWeight: this.idleAction?.getEffectiveWeight() ?? null,
+      runWeight: this.runAction?.getEffectiveWeight() ?? null,
+    };
   }
 }

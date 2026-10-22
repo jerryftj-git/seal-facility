@@ -39,7 +39,6 @@ npm run dev
 |---|---|
 | `?seed=123` | 固定亂數種子，每次進關的題目序列相同 |
 | `?fps=1` | 右上角顯示幀率、draw call、三角形數（在 iPad 上檢查效能用） |
-| `?feet=1` | 預覽全像投影的觸地點標記（待確認的功能，見 QUESTIONS.md） |
 
 ## 操作
 
@@ -76,7 +75,7 @@ npm run dev
 
 | 檔名 | 內容 | 參考尺寸 | 原點與朝向 | 必要／選用的節點、動畫 |
 |---|---|---|---|---|
-| `agent.glb` | 探員 | 高約 1.75 m | 腳底中心，面向 +Z | 選用動畫 `idle`、`walk` |
+| `agent.glb` | 探員 | 高約 1.8 m | 腳底中心，**面向 −Z**（和其他模型相反，見下方「探員模型規格」） | 選用動畫 `idle`、`run`（可含骨架） |
 | `scout.glb` | 偵察體（雙足） | 高約 0.9 m，長 0.6 m | 腳底中心，面向 +Z | 選用：腳底空物件 `foot_*`（觸地點標記用）。生物動畫目前不會播放 |
 | `hunter.glb` | 獵獸（四足） | 高約 0.55 m，長 1.1 m | 腳底中心，面向 +Z | 同上 |
 | `seal_pod.glb` | 封印艙（長型培養槽） | 寬 4.4 m（X）、深 1.5 m、高 2.7 m | 底面中心，正面朝 +Z | **`glass`**（玻璃 mesh，除霧時調透明度）；空物件 `readout_N`、`readout_L`（讀數面板位置）、`slots_start`、`slots_end`（生物排列的兩端，`slots_start` 是第 0 隻、在正面看的右手邊） |
@@ -93,6 +92,49 @@ npm run dev
 - 勾選 **Apply Modifiers**；有動畫就勾 **Animation**，動作（Action）名稱要和上表的動畫名稱一樣。
 - 材質用 Principled BSDF（會轉成 three.js 的 MeshStandardMaterial），發光部分用 Emission。
 - 空物件（Empty）的名稱會原樣保留，用來標記 `readout_N`、`foot_L` 這類位置。
+
+### 探員模型規格（含骨架動畫）
+
+| 項目 | 規格 |
+|---|---|
+| 檔名 | `public/models/agent.glb` |
+| 高度 | 約 1.8 公尺 |
+| 原點 | 兩腳之間的地面（腳底） |
+| 朝向 | 臉朝 **−Z**（glTF 座標）。程式載入後會轉 180°，對齊遊戲內的前進方向 |
+| 動畫剪輯 | `idle`（待機）、`run`（跑步）。都要做成可循環的，**原地動畫（In Place）**，不能有根骨位移 |
+| 骨架 | 可有可無。有骨架與動畫時用 AnimationMixer 播放，沒有動畫就維持現在的上下晃動 |
+
+- 遊戲依移動速度在 `idle` 和 `run` 之間平滑混合（約 0.3 秒），慢速移動時跑步動畫會放慢，減少腳底打滑。
+- 名稱不分大小寫，也接受 Blender 匯出常見的 `Armature|run` 這種「物件|動作」格式。
+- 找不到 `run` 時會改用 `walk`；兩個都找不到時會循環播放第一個剪輯，並在 Console 警告。
+- 推演模式（時間停止）時動畫會凍結。
+
+#### 從 Mixamo 取得動畫並匯出 .glb
+
+1. 到 [Mixamo](https://www.mixamo.com/) 上傳角色（或選一個現成角色），完成自動綁骨。
+2. 搜尋待機動畫（例如 *Idle*），右側勾選 **In Place**（若有這個選項），按 **Download**：
+   - Format：**FBX Binary (.fbx)**
+   - Skin：**With Skin**
+   - Frames per Second：30
+3. 同樣下載跑步動畫（例如 *Running*，一定要勾 **In Place**）。這一份可以選 **Without Skin**，只要動作。
+4. 開 Blender（4.x），**File → Import → FBX** 匯入待機那一份（含 Skin 的）。
+   - Mixamo 的 FBX 常常是 100 倍大：匯入後選骨架，把 Scale 調到身高約 1.8 m，然後 **Ctrl+A → All Transforms** 套用。
+5. 再匯入跑步那一份。打開 **Dope Sheet → Action Editor**，會看到兩個動作（名稱多半是 `mixamo.com` 之類）：
+   - 把它們分別改名成 **`idle`** 和 **`run`**。
+   - 兩個動作都按一下盾牌圖示（**Fake User**），避免存檔時被清掉。
+   - 用 **Push Down** 把兩個動作都推到骨架的 NLA 軌道上。
+   - 刪掉第二份匯入時多出來的骨架，只保留一副骨架加角色網格。
+6. **調整朝向**：Mixamo 角色匯入後臉朝 Blender 的 −Y（從前視圖 Numpad 1 看得到臉），匯出後會是 +Z。
+   - 本專案要 **−Z**，所以把骨架連同網格繞 Z 軸轉 **180°**（`R` `Z` `180`），再 **Ctrl+A → Rotation** 套用。
+   - 轉好之後，從前視圖（Numpad 1）看到的應該是角色的背面。
+7. **File → Export → glTF 2.0**：
+   - Format：**glTF Binary (.glb)**
+   - Include：勾選 **Selected Objects**（先選好骨架和網格）
+   - Transform：**+Y Up** 保持勾選
+   - Data → Mesh：勾選 **Apply Modifiers**
+   - Animation：勾選，模式選 **Actions**（或 NLA Tracks），確認 `idle`、`run` 都有匯出
+8. 存成 `public/models/agent.glb`，重新整理遊戲。Console 會顯示 `[AssetLoader] glb: agent`。
+   - 走路時角色臉朝前進方向就對了；如果倒著走，代表第 6 步的朝向沒轉。
 
 ### 注意事項
 
