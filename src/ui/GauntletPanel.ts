@@ -25,6 +25,15 @@ export interface PanelCallbacks {
   onExit(): void;
 }
 
+/**
+ * 「每把一隻改成四隻腳，腳印 +2」提示句與按鈕上的 (+2)／(−2)。
+ * 注意：原始規格是「不顯示每換一隻差 2 之類的提示，讓玩家自己發現」；2026-10-22 使用者要求加上。
+ * 改成 false 就同時拿掉提示句與按鈕上的數字。
+ */
+export const SHOW_STEP_HINT = true;
+
+const GOAL_TEXT = '目標：讓算出來的腳印和地上的腳印一樣多';
+
 const KEYS: Record<string, ConvertDir> = {
   KeyA: 'toBiped',
   ArrowLeft: 'toBiped',
@@ -52,20 +61,20 @@ export class GauntletPanel {
         <span class="g-title"><i class="g-dot"></i><span class="g-title-text">推演模式</span></span>
         <button class="g-exit" type="button">離開 <kbd class="desktop-only">E</kbd></button>
       </div>
-      <div class="g-goal">目標：讓「預測腳印」和「實際腳印」一樣多</div>
+      <div class="g-goal">${GOAL_TEXT}</div>
       <div class="g-hyp"></div>
       <div class="g-counts">
         <span class="g-count biped">${ICONS.scout}<span>偵察體<small>兩隻腳</small></span><b></b></span>
         <span class="g-count quad">${ICONS.hunter}<span>獵獸<small>四隻腳</small></span><b></b></span>
       </div>
       <div class="g-bars">
-        <div class="g-row pred"><label>預測腳印</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
-        <div class="g-row act"><label>實際腳印</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
+        <div class="g-row act"><label>地上的腳印</label><div class="g-bar"><i class="fill"></i></div><output></output></div>
+        <div class="g-row pred"><label>照你的猜法算出來</label><div class="g-bar"><i class="fill"></i><i class="gap"></i><i class="mark"></i></div><output></output></div>
       </div>
-      <div class="g-diff"><span class="g-arrow"></span><span>差</span><b></b></div>
+      <div class="g-diff"><span class="g-diff-text"></span><small class="g-hint"></small></div>
       <div class="g-buttons">
-        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>轉換一隻為</span><span>兩隻腳</span></span><kbd class="desktop-only">A</kbd></button>
-        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>轉換一隻為</span><span>四隻腳</span></span><span class="g-btn-arrow">▶</span></button>
+        <button class="g-btn to-biped" type="button" data-dir="toBiped"><span class="g-btn-arrow">◀</span><span class="g-btn-label"><span>把一隻改回</span><span>兩隻腳${SHOW_STEP_HINT ? ' (−2)' : ''}</span></span><kbd class="desktop-only">A</kbd></button>
+        <button class="g-btn to-quad" type="button" data-dir="toQuad"><kbd class="desktop-only">D</kbd><span class="g-btn-label"><span>把一隻改成</span><span>四隻腳${SHOW_STEP_HINT ? ' (+2)' : ''}</span></span><span class="g-btn-arrow">▶</span></button>
       </div>`,
     );
     parent.appendChild(this.root);
@@ -155,9 +164,9 @@ export class GauntletPanel {
     r.dataset.dir = dir;
     r.classList.toggle('solved', v.solved);
     r.querySelector('.g-title-text')!.textContent = v.solved ? '封印解除' : '推演模式';
-    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : '目標：讓「預測腳印」和「實際腳印」一樣多';
+    r.querySelector('.g-goal')!.textContent = v.solved ? '一樣多了！封印解除，大門正在打開' : GOAL_TEXT;
     r.querySelector('.g-hyp')!.textContent =
-      v.quad === 0 ? '假設：全部是兩隻腳' : v.biped === 0 ? '假設：全部是四隻腳' : `假設：兩隻腳 ${v.biped}・四隻腳 ${v.quad}`;
+      v.quad === 0 ? `你的猜法：${v.biped} 隻都是兩隻腳` : `你的猜法：${v.biped} 隻兩隻腳、${v.quad} 隻四隻腳`;
     r.querySelector('.biped b')!.textContent = String(v.biped);
     r.querySelector('.quad b')!.textContent = String(v.quad);
 
@@ -173,8 +182,20 @@ export class GauntletPanel {
     pred.querySelector('output')!.textContent = String(v.predicted);
     act.querySelector('output')!.textContent = String(v.actual);
 
-    r.querySelector('.g-arrow')!.textContent = dir === 'under' ? '▲' : dir === 'over' ? '▼' : '●';
-    r.querySelector('.g-diff b')!.textContent = String(Math.abs(v.diff));
+    // 差距的文字與顏色狀態（顏色由 data-dir 控制：under／over = 橘、match = 綠，見 gauntlet.css）
+    const diffText = r.querySelector('.g-diff-text')!;
+    const hint = r.querySelector<HTMLElement>('.g-hint')!;
+    if (dir === 'match') {
+      diffText.innerHTML = '<b>符合！</b>';
+      hint.textContent = '';
+    } else if (dir === 'under') {
+      diffText.innerHTML = `還差 <b>${v.diff}</b> 個腳印`;
+      hint.textContent = SHOW_STEP_HINT ? '每把一隻改成四隻腳，腳印 +2' : '';
+    } else {
+      diffText.innerHTML = `多了 <b>${-v.diff}</b> 個腳印`;
+      hint.textContent = SHOW_STEP_HINT ? '每把一隻改回兩隻腳，腳印 −2' : '';
+    }
+    hint.hidden = !hint.textContent;
 
     this.btn.toBiped.classList.toggle('dim', !v.canToBiped);
     this.btn.toQuad.classList.toggle('dim', !v.canToQuad);

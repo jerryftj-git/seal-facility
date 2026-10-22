@@ -170,7 +170,7 @@ export class Game {
     const press = this.input.mode === 'touch' ? '按<b>互動鍵</b>' : '按 <kbd>E</kbd>';
     const text: Record<Objective, [number | null, string, THREE.Vector3 | null]> = {
       pod: [1, `走到<b>封印艙</b>，靠近後${press}打開推演手套`, new THREE.Vector3(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z)],
-      solve: [2, `用推演手套讓<b>「預測腳印」和「實際腳印」一樣多</b>`, new THREE.Vector3(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z)],
+      solve: [2, `用推演手套讓<b>算出來的腳印和地上的腳印一樣多</b>`, new THREE.Vector3(LAYOUT.pod.x + 1.6, 2.7, LAYOUT.pod.z)],
       chest: [3, `穿過大門，打開走廊盡頭的<b>寶箱</b>`, new THREE.Vector3(LAYOUT.chest.x, 1.5, LAYOUT.chest.z)],
       done: [null, '', null],
     };

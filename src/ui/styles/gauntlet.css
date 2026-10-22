@@ -18,8 +18,9 @@
     holo-flicker 4s infinite steps(1);
 }
 
+/* 差距不為零（不足或超過）一律橘色；剛好一樣多是綠色 */
 .gauntlet[data-dir='over'] {
-  --accent: var(--over);
+  --accent: var(--under);
 }
 
 .gauntlet[data-dir='match'],
@@ -187,7 +188,7 @@
 
 .g-row {
   display: grid;
-  grid-template-columns: 4.6em 1fr 2.4em;
+  grid-template-columns: 8.2em 1fr 2.4em;
   gap: 10px;
   align-items: center;
   font-size: 14px;
@@ -253,13 +254,24 @@
 
 .g-diff {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   padding: 6px 0;
-  font-size: 18px;
   color: var(--accent);
   transition: color 0.3s;
+}
+
+.g-diff-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 18px;
+}
+
+.g-hint {
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .g-diff b {
@@ -270,9 +282,6 @@
   text-shadow: 0 0 16px var(--accent);
 }
 
-.g-arrow {
-  font-size: 22px;
-}
 
 .g-diff.bump b {
   animation: bump 0.2s ease-out;
@@ -373,4 +382,14 @@
     padding: 8px 6px;
     font-size: 14px;
   }
+}
+
+/* 剛好一樣多：兩條能量條也轉綠 */
+.gauntlet[data-dir='match'] .g-bar .fill {
+  background: linear-gradient(90deg, rgba(61, 255, 138, 0.35), rgba(61, 255, 138, 0.9));
+  box-shadow: 0 0 10px rgba(61, 255, 138, 0.5);
+}
+
+.gauntlet[data-dir='match'] .g-diff b {
+  font-size: 34px;
 }
