@@ -92,17 +92,17 @@ export function buildCorridorEnd(): THREE.Object3D {
   return root;
 }
 
-/** 封印艙：長型培養槽，長軸沿 X（約 4.4 m），正面朝 +Z */
+/** 封印艙：長型培養槽，長軸沿 X（約 5.4 m，8 隻生物排得開），正面朝 +Z */
 export function buildSealPod(): THREE.Object3D {
   const frame = cached('pod-frame', () =>
     mergeParts([
-      { geo: box(4.4, 0.35, 1.5), pos: [0, 0.175, 0] },
-      { geo: box(4.4, 0.35, 1.5), pos: [0, 2.525, 0] },
-      { geo: box(0.25, 2.0, 1.5), pos: [-2.075, 1.35, 0] },
-      { geo: box(0.25, 2.0, 1.5), pos: [2.075, 1.35, 0] },
-      { geo: box(4.4, 2.0, 0.12), pos: [0, 1.35, -0.69] },
-      { geo: cyl(0.09, 0.09, 1.6, 8), pos: [-1.5, 3.5, -0.2] },
-      { geo: cyl(0.09, 0.09, 1.6, 8), pos: [1.5, 3.5, -0.2] },
+      { geo: box(5.4, 0.35, 1.5), pos: [0, 0.175, 0] },
+      { geo: box(5.4, 0.35, 1.5), pos: [0, 2.525, 0] },
+      { geo: box(0.25, 2.0, 1.5), pos: [-2.575, 1.35, 0] },
+      { geo: box(0.25, 2.0, 1.5), pos: [2.575, 1.35, 0] },
+      { geo: box(5.4, 2.0, 0.12), pos: [0, 1.35, -0.69] },
+      { geo: cyl(0.09, 0.09, 1.6, 8), pos: [-2.0, 3.5, -0.2] },
+      { geo: cyl(0.09, 0.09, 1.6, 8), pos: [2.0, 3.5, -0.2] },
       { geo: cyl(0.06, 0.06, 1.6, 8), pos: [0, 3.5, -0.4] },
       // 讀數面板的托架
       { geo: box(3.8, 0.9, 0.08), pos: [0, 3.05, 0.3] },
@@ -110,8 +110,8 @@ export function buildSealPod(): THREE.Object3D {
   );
   const glow = cached('pod-glow', () =>
     mergeParts([
-      { geo: box(3.9, 0.04, 0.04), pos: [0, 0.36, 0.74] },
-      { geo: box(3.9, 0.04, 0.04), pos: [0, 2.34, 0.74] },
+      { geo: box(4.9, 0.04, 0.04), pos: [0, 0.36, 0.74] },
+      { geo: box(4.9, 0.04, 0.04), pos: [0, 2.34, 0.74] },
     ]),
   );
   const root = new THREE.Group();
@@ -120,7 +120,7 @@ export function buildSealPod(): THREE.Object3D {
   root.add(mesh(glow, m().glow, 'pod_glow'));
 
   const glass = new THREE.Mesh(
-    box(3.9, 2.0, 1.3),
+    box(4.9, 2.0, 1.3),
     new THREE.MeshStandardMaterial({
       color: 0x1a3c46,
       emissive: 0x0f3b44,
@@ -140,8 +140,9 @@ export function buildSealPod(): THREE.Object3D {
   const anchors: [string, number, number, number][] = [
     ['readout_N', -0.95, 3.05, 0.36],
     ['readout_L', 0.95, 3.05, 0.36],
-    ['slots_start', 1.72, 0.35, 0],
-    ['slots_end', -1.72, 0.35, 0],
+    // 玻璃內寬約 ±2.45；兩端各留生物半個身長以上，才不會看起來跑出艙外
+    ['slots_start', 1.85, 0.35, 0],
+    ['slots_end', -1.85, 0.35, 0],
   ];
   for (const [name, x, y, z] of anchors) {
     const o = new THREE.Object3D();

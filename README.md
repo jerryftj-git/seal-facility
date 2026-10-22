@@ -78,7 +78,7 @@ npm run dev
 | `agent.glb` | 探員 | 高約 1.8 m | 腳底中心，**面向 −Z**（和其他模型相反，見下方「探員模型規格」） | 選用動畫 `idle`、`run`（可含骨架） |
 | `scout.glb` | 偵察體（雙足） | 高約 0.9 m，長 0.6 m | 腳底中心，面向 +Z | 選用：腳底空物件 `foot_*`（觸地點標記用）。生物動畫目前不會播放 |
 | `hunter.glb` | 獵獸（四足） | 高約 0.55 m，長 1.1 m | 腳底中心，面向 +Z | 同上 |
-| `seal_pod.glb` | 封印艙（長型培養槽） | 寬 4.4 m（X）、深 1.5 m、高 2.7 m | 底面中心，正面朝 +Z | **`glass`**（玻璃 mesh，除霧時調透明度）；空物件 `readout_N`、`readout_L`（讀數面板位置）、`slots_start`、`slots_end`（生物排列的兩端，`slots_start` 是第 0 隻、在正面看的右手邊） |
+| `seal_pod.glb` | 封印艙（長型培養槽） | 寬 5.4 m（X）、深 1.5 m、高 2.7 m；生物排在艙內，`slots_start`／`slots_end` 兩端要離玻璃至少 0.5 m | 底面中心，正面朝 +Z | **`glass`**（玻璃 mesh，除霧時調透明度）；空物件 `readout_N`、`readout_L`（讀數面板位置）、`slots_start`、`slots_end`（生物排列的兩端，`slots_start` 是第 0 隻、在正面看的右手邊） |
 | `door.glb` | 門 | 開口 4.4 × 3.4 m，外框 6 × 4 m | 地面中心，正面朝 +Z | 三擇一：① 動畫 `open`；② 節點 `lock_bar`、`seg_0`～`seg_3`（左外、左內、右內、右外，程式會做分段滑開）；③ 都沒有就整扇往上升。選用 `status_light`（mesh，解鎖時轉綠） |
 | `chest.glb` | 寶箱 | 0.9 × 0.6 × 0.6 m | 底面中心，正面朝 +Z | 選用動畫 `open`，或節點 `lid`（樞紐放在後上緣，程式會繞 X 軸打開）；選用空物件 `chip_anchor`（晶片出現位置） |
 | `corridor_straight.glb` | 走廊直段 | 寬 6 m、高 4 m、長 4 m | 段落起點的地面中心，沿 **−Z** 延伸 4 m | — |

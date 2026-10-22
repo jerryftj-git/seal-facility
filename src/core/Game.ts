@@ -250,10 +250,11 @@ export class Game {
     const r = this.panel.rect;
     const availW = this.panel.side === 'right' ? Math.max(200, r.left) : W;
     const availH = this.panel.side === 'bottom' ? Math.max(200, r.top) : H;
-    const target = LAYOUT.podFocus.clone().setY(1.75);
-    const position = new THREE.Vector3(2.4, 1.85, LAYOUT.pod.z);
+    // 稍微俯視：前後兩排生物在畫面上錯開，腳下的觸地點也看得到
+    const target = LAYOUT.podFocus.clone().setY(1.6);
+    const position = new THREE.Vector3(2.4, 2.6, LAYOUT.pod.z);
     const d = position.x - -1.6;
-    const tanW = 2.55 / (d * (availW / H));
+    const tanW = 3.05 / (d * (availW / H));
     const tanH = 1.95 / (d * (availH / H));
     const fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.max(tanW, tanH))), 40, 95);
     return { position, target, fov };

@@ -4,11 +4,12 @@ import { SPECIES_ASSET, type AssetId } from '../assets/manifest';
 import { PLACEHOLDER_FEET } from '../assets/placeholders/creatures';
 import { applyMaterial, glowMaterial, hologramMaterial } from '../core/materials';
 import { PALETTE } from '../core/palette';
+import { CREATURE_DISPLAY_SCALE, CREATURE_FACING } from './SealPod';
 
 const MORPH_TIME = 0.3;
-const HOLO_SCALE = 0.72;
+const HOLO_SCALE = CREATURE_DISPLAY_SCALE;
 /** 斜向面對鏡頭（3/4 側面），剪影好認、又不會和隔壁重疊 */
-const FACING = Math.PI / 2 - 0.65;
+const FACING = CREATURE_FACING;
 
 /** 觸地點發光標記：每隻生物腳下的受力點，是題目的物理事實（QUESTIONS Q1 決定開啟） */
 let footGeo: THREE.CircleGeometry | null = null;

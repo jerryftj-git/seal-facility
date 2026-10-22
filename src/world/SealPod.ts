@@ -6,6 +6,12 @@ import type { Tweens } from '../core/Tweens';
 import { Readout } from './Readout';
 
 const CYAN = '#2ee6f0';
+
+/** 艙內生物（全像投影與真實生物共用）的縮放，兩者大小一致才會「和投影一致」 */
+export const CREATURE_DISPLAY_SCALE = 0.85;
+
+/** 艙內生物的朝向：3/4 側面，剪影（腳數）好認，身長佔的寬度又不會太大 */
+export const CREATURE_FACING = Math.PI / 2 - 0.8;
 const GREEN = '#3dff8a';
 
 /**
@@ -19,8 +25,8 @@ export class SealPod {
   private readonly glass: THREE.Mesh | null;
   private readonly light = new THREE.PointLight(PALETTE.cyan, 6, 6, 2);
   private readonly creatures = new THREE.Group();
-  private readonly start = new THREE.Vector3(1.72, 0.35, 0);
-  private readonly end = new THREE.Vector3(-1.72, 0.35, 0);
+  private readonly start = new THREE.Vector3(1.85, 0.35, 0);
+  private readonly end = new THREE.Vector3(-1.85, 0.35, 0);
   solved = false;
 
   constructor(
@@ -67,12 +73,15 @@ export class SealPod {
     const a = this.start.clone().lerp(this.end, margin / 2);
     const b = this.end.clone().lerp(this.start, margin / 2);
     // 前後交錯排列，數量多時才不會疊在一起
-    return a.lerp(b, t).add(new THREE.Vector3(0, 0, i % 2 === 0 ? -0.18 : 0.18));
+    return a.lerp(b, t).add(new THREE.Vector3(0, 0, i % 2 === 0 ? -0.28 : 0.28));
   }
 
-  /** 全像投影的位置：艙前方，和艙內的 slot 一一對應 */
+  /**
+   * 全像投影的位置：就投在艙內，和真實生物的位置一模一樣。
+   * （以前投在艙前方，離鏡頭較近、透視放大，兩端看起來會跑出艙外。）
+   */
   holoLocal(i: number, n: number): THREE.Vector3 {
-    return this.slotLocal(i, n).add(new THREE.Vector3(0, 0.25, 1.35));
+    return this.slotLocal(i, n);
   }
 
   setSolvedLook(): void {
@@ -88,8 +97,8 @@ export class SealPod {
     slots.forEach((id, i) => {
       const c = this.assets.get(SPECIES_ASSET[id] ?? 'scout').scene;
       c.position.copy(this.slotLocal(i, slots.length));
-      c.rotation.y = Math.PI / 2 - 0.65 + (Math.random() - 0.5) * 0.4;
-      c.scale.setScalar(0.92);
+      c.rotation.y = CREATURE_FACING + (Math.random() - 0.5) * 0.25;
+      c.scale.setScalar(CREATURE_DISPLAY_SCALE);
       this.creatures.add(c);
     });
     const mat = this.glass?.material as THREE.MeshStandardMaterial | undefined;

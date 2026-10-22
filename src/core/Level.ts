@@ -71,7 +71,7 @@ export class Level {
     this.pod.object.position.set(LAYOUT.pod.x, 0, LAYOUT.pod.z);
     this.pod.object.rotation.y = Math.PI / 2;
     this.root.add(this.pod.object);
-    this.world.add({ name: 'pod', minX: -hw, maxX: LAYOUT.pod.x + 0.8, minZ: LAYOUT.pod.z - 2.25, maxZ: LAYOUT.pod.z + 2.25 });
+    this.world.add({ name: 'pod', minX: -hw, maxX: LAYOUT.pod.x + 0.8, minZ: LAYOUT.pod.z - 2.75, maxZ: LAYOUT.pod.z + 2.75 });
 
     const n = initialSlots.length;
     const positions = initialSlots.map((_, i) => this.pod.holoLocal(i, n));
