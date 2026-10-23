@@ -79,11 +79,6 @@ export class GameAudio {
     this.tone(f * 2, 0.08, { type: 'sine', gain: 0.05 });
   }
 
-  /** 邊界被擋下 */
-  blocked(): void {
-    this.tone(90, 0.22, { type: 'sawtooth', gain: 0.12, slideTo: 70 });
-  }
-
   solved(): void {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.6, { type: 'triangle', gain: 0.12, delay: i * 0.09 }));
   }
@@ -99,23 +94,34 @@ export class GameAudio {
     this.tone(1320, 0.1, { type: 'triangle', gain: 0.05, delay: 0.08 });
   }
 
-  /** 拾取隱藏晶片 */
-  pickup(): void {
-    [1046, 1318, 1568, 2093].forEach((f, i) => this.tone(f, 0.25, { type: 'triangle', gain: 0.07, delay: i * 0.05 }));
-    this.noise(0.3, { gain: 0.05, freq: 3000, sweepTo: 6000, q: 2 });
-  }
-
-  /** 推演手套升級 */
-  upgrade(): void {
-    this.tone(220, 0.5, { type: 'sawtooth', gain: 0.05, slideTo: 880 });
-    [523, 784, 1046, 1568].forEach((f, i) => this.tone(f, 0.7, { type: 'triangle', gain: 0.09, delay: 0.25 + i * 0.08 }));
-  }
-
   /** 掃描台掃描地面（約 1.5 秒）：上揚的掃描音＋細碎的雜訊，結尾一聲確認 */
   scan(duration = 1.5): void {
     this.tone(330, duration, { type: 'sawtooth', gain: 0.035, slideTo: 1320, attack: 0.05 });
     this.noise(duration, { gain: 0.05, freq: 1200, sweepTo: 5000, q: 6 });
     this.tone(1760, 0.18, { type: 'triangle', gain: 0.07, delay: duration });
+  }
+
+  /** 低電力心跳：兩聲低沉的咚咚（Game 依剩餘電力決定多久響一次） */
+  heartbeat(): void {
+    this.tone(58, 0.16, { type: 'sine', gain: 0.32, slideTo: 42 });
+    this.tone(52, 0.18, { type: 'sine', gain: 0.24, slideTo: 38, delay: 0.2 });
+  }
+
+  /** 撿到電池：上揚的充電聲 */
+  battery(): void {
+    this.tone(330, 0.35, { type: 'triangle', gain: 0.08, slideTo: 990 });
+    [784, 1046, 1318].forEach((f, i) => this.tone(f, 0.22, { type: 'triangle', gain: 0.07, delay: 0.18 + i * 0.06 }));
+  }
+
+  /** 電力耗盡：往下掉的關機聲 */
+  powerOut(): void {
+    this.tone(440, 1.2, { type: 'sawtooth', gain: 0.07, slideTo: 40 });
+    this.noise(0.8, { gain: 0.06, freq: 900, sweepTo: 120, q: 1.5, delay: 0.2 });
+  }
+
+  /** 新紀錄 */
+  newRecord(): void {
+    [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, 0.5, { type: 'triangle', gain: 0.09, delay: i * 0.1 }));
   }
 
   /** 密碼盤按一個數字 */
@@ -197,10 +203,6 @@ export class GameAudio {
   chest(): void {
     this.noise(0.5, { gain: 0.08, freq: 600, sweepTo: 2000, q: 3 });
     [880, 1320, 1760].forEach((f, i) => this.tone(f, 0.4, { gain: 0.06, delay: 0.3 + i * 0.07 }));
-  }
-
-  chip(): void {
-    this.tone(1400, 0.25, { type: 'triangle', gain: 0.08, slideTo: 2200 });
   }
 
   /** 背景低頻嗡嗡聲 */

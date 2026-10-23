@@ -48,7 +48,7 @@ export const AGENT_LOOK = {
     opacity: 0.75,
   },
 
-  /** 環境反射貼圖：每次建關卡時從走廊中央拍一張（PMREM），只給主角用 */
+  /** 環境反射貼圖：每次開新的一局時從走廊中央拍一張（PMREM），只給主角用 */
   envMap: {
     enabled: true,
     position: new THREE.Vector3(0, 1.5, -6),
@@ -190,7 +190,7 @@ export class RimLight {
   }
 }
 
-/** 從走廊拍一張環境貼圖（只在建關卡時做一次），給主角的反射用 */
+/** 從走廊拍一張環境貼圖（只在開局時做一次），給主角的反射用 */
 export function captureEnvMap(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,

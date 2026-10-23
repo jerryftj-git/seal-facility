@@ -1,6 +1,6 @@
 /**
  * 俯視平面上的簡易碰撞（不依賴 three.js，可單元測試）。
- * 關卡是軸對齊的走廊：一個可走的外框 + 若干矩形障礙（可開關，例如門）。
+ * 走廊是軸對齊的：一個可走的外框 + 若干矩形障礙（可開關，例如門）。
  */
 export interface Rect {
   minX: number;
@@ -12,6 +12,8 @@ export interface Rect {
 export interface Obstacle extends Rect {
   name: string;
   enabled: boolean;
+  /** 屬於哪一段走廊（卸載那一段時一起移除） */
+  tag?: string;
   /** 障礙物高度，鏡頭在這個高度以上可以通過（預設無限高） */
   height?: number;
 }
@@ -34,6 +36,11 @@ export class CollisionWorld {
 
   get(name: string): Obstacle | undefined {
     return this.obstacles.find((o) => o.name === name);
+  }
+
+  /** 移除某一段走廊的所有障礙 */
+  removeTag(tag: string): void {
+    for (let i = this.obstacles.length - 1; i >= 0; i--) if (this.obstacles[i].tag === tag) this.obstacles.splice(i, 1);
   }
 
   /** 把半徑 r 的圓推出所有障礙並限制在外框內，回傳修正後位置 */

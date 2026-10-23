@@ -1,0 +1,68 @@
+/* 暫停選單：遮住整個畫面（看不到遊戲），計時停止 */
+.pause-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: rgba(3, 7, 10, 0.94);
+  backdrop-filter: blur(10px);
+}
+
+.pause-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 240px;
+  padding: 28px 36px;
+  border-radius: 10px;
+}
+
+.pause-box h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: 0.4em;
+  color: var(--cyan);
+}
+
+.pause-box button {
+  align-self: stretch;
+}
+
+.pause-menu.cover .pause-box {
+  display: none;
+}
+
+/* 回到遊戲前的 3 秒倒數 */
+.resume-count {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: rgba(3, 7, 10, 0.35);
+}
+
+.resume-count b {
+  font-family: var(--mono);
+  font-size: 120px;
+  color: var(--cyan);
+  text-shadow: 0 0 40px rgba(46, 230, 240, 0.6);
+}
+
+.resume-count b.tick {
+  animation: count-tick 1s ease-out;
+}
+
+@keyframes count-tick {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+}

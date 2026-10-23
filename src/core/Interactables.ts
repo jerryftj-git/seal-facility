@@ -1,7 +1,7 @@
 export interface Interactable {
-  id: 'pod' | 'chest' | 'chip' | 'scan' | 'keypad';
-  /** 屬於第幾關（區段） */
-  level: number;
+  id: 'pod' | 'chest' | 'battery' | 'scan' | 'keypad';
+  /** 屬於第幾道門的那一段走廊 */
+  door: number;
   /** 互動提示文字 */
   label: string;
   x: number;

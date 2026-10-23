@@ -99,6 +99,7 @@ export function hazardStripes(width: number, depth: number): THREE.Mesh {
     new THREE.PlaneGeometry(width, depth),
     new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0.1, emissive: 0x401000, emissiveMap: tex, emissiveIntensity: 0.25 }),
   );
+  m.name = 'hazard_stripes';
   m.rotation.x = -Math.PI / 2;
   m.position.y = 0.006;
   return m;

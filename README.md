@@ -1,10 +1,11 @@
 # 封印設施（暫名）
 
-給國小四～六年級的 3D 網頁解謎遊戲：玩家用「推演手套」思考封印艙裡雙足／四足生物的組成，
-再到大門的密碼盤輸入答案（只有一次機會），在不知不覺中練習雞兔同籠的假設法。three.js + Vite + TypeScript，純前端。
+給國小四～六年級的 3D 網頁解謎遊戲：護衛機器人帶著有限的電力往設施深處走，每一道門都要用「推演手套」
+想出封印艙裡雙足／四足生物的組成，再到密碼盤輸入答案（只有一次機會），拿門後寶箱的電池補電，看能走多遠。
+在不知不覺中練習雞兔同籠的假設法。three.js + Vite + TypeScript，純前端。
 
 - 線上版：<https://jerryftj-git.github.io/seal-facility/>
-- 流程：出生點 → 走廊 → 封印艙（推演手套）→ 大門密碼盤 → 寶箱 → 結算
+- 流程（電力限時探索）：出發（120 秒電力）→ 掃描台 → 封印艙（推演手套）→ 大門密碼盤 → 門後寶箱（電池）→ 下一段走廊 → … → 電力耗盡 → 任務結束
 
 ## 本機執行
 
@@ -37,7 +38,7 @@ npm run dev
 
 | 參數 | 作用 |
 |---|---|
-| `?seed=123` | 固定亂數種子，每次進關的題目序列相同 |
+| `?seed=123` | 固定亂數種子，每一局的題目、側室序列相同（`?seed=7` 第 1 門是 5 隻、18 個接觸點） |
 | `?fps=1` | 右上角顯示幀率、draw call、三角形數（在 iPad 上檢查效能用） |
 
 ## 操作
@@ -45,11 +46,12 @@ npm run dev
 | | PC | iPad |
 |---|---|---|
 | 移動 | WASD（按住 Shift 慢走） | 左半邊虛擬搖桿（輕推慢走、推到底跑） |
-| 視角 | 滑鼠（點畫面鎖定游標，Esc 解除） | 右半邊拖曳 |
+| 視角 | 滑鼠（點畫面鎖定游標） | 右半邊拖曳 |
 | 互動 | E | 靠近時右下角出現的互動鈕 |
-| 推演手套 | 封印艙前按 E；Lv2 試算：數字鍵或 −／＋，Enter 確認 | 互動鈕；試算用 −／＋ |
+| 推演手套 | 封印艙前按 E | 互動鈕 |
 | 封印解除碼 | 大門右側密碼盤前按 E；數字鍵 0–9、Backspace、Enter | 互動鈕；螢幕鍵盤 |
-| 離開面板 | E／Esc | 面板右上「離開」 |
+| 離開面板 | E | 面板右上「離開」 |
+| 暫停 | Esc（或滑鼠被解除鎖定） | 右上角暫停鈕 |
 
 ## 部署到 GitHub Pages
 
@@ -81,7 +83,7 @@ npm run dev
 | `hunter.glb` | 獵獸（四足） | 高約 0.55 m，長 1.1 m | 腳底中心，面向 +Z | 同上 |
 | `seal_pod.glb` | 封印艙（長型培養槽） | 寬 5.4 m（X）、深 1.5 m、高 2.7 m；生物排在艙內，`slots_start`／`slots_end` 兩端要離玻璃至少 0.5 m | 底面中心，正面朝 +Z | **`glass`**（玻璃 mesh，除霧時調透明度）；空物件 `readout_N`、`readout_L`（讀數面板位置）、`slots_start`、`slots_end`（生物排列的兩端，`slots_start` 是第 0 隻、在正面看的右手邊） |
 | `door.glb` | 門 | 開口 4.4 × 3.4 m，外框 6 × 4 m | 地面中心，正面朝 +Z | 三擇一：① 動畫 `open`；② 節點 `lock_bar`、`seg_0`～`seg_3`（左外、左內、右內、右外，程式會做分段滑開）；③ 都沒有就整扇往上升。選用 `status_light`（mesh，解鎖時轉綠） |
-| `chest.glb` | 寶箱 | 0.9 × 0.6 × 0.6 m | 底面中心，正面朝 +Z | 選用動畫 `open`，或節點 `lid`（樞紐放在後上緣，程式會繞 X 軸打開）；選用空物件 `chip_anchor`（晶片出現位置） |
+| `chest.glb` | 寶箱 | 0.9 × 0.6 × 0.6 m | 底面中心，正面朝 +Z | 選用動畫 `open`，或節點 `lid`（樞紐放在後上緣，程式會繞 X 軸打開）；選用空物件 `battery_anchor`（電池出現位置） |
 | `corridor_straight.glb` | 走廊直段 | 寬 6 m、高 4 m、長 4 m | 段落起點的地面中心，沿 **−Z** 延伸 4 m | — |
 | `corridor_end.glb` | 走廊端牆 | 6 × 4 m | 牆面在 z = 0，朝 +Z | — |
 
@@ -178,37 +180,29 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 想手動在 Blender 裡做也可以，重點是：三個動作命名成 `idle`／`walk`／`run`、去掉 Hips 的水平位移、角色繞 Z 軸轉 180°（從前視圖 Numpad 1 看到背面）、匯出 glTF Binary 並帶上動畫。
 
-### 資料晶片與推演手套升級
+### 電力限時探索（規則數值在 `src/run/runConfig.ts` 的 `RUN_CONFIG`）
 
-- **升級樹的數值**（花費、名稱、效果說明、各級邊框顏色）全部在 `src/progress/gloveUpgrades.ts` 的 `GLOVE_UPGRADES`。
-- **晶片來源**：開門 +1、寶箱 +1（每次重玩都給）、每個房間的隱藏晶片 +1（只能拿一次）。隱藏晶片位置在關卡資料（見下一節）。
-- **存檔**：localStorage，key 集中在 `src/core/saveData.ts` 的 `SAVE_CONFIG`（晶片數、手套等級、各房間隱藏晶片、目前關卡、本輪晶片、各關掃描／評級、一次性提示、開場是否看過）。
+| 欄位 | 預設 | 意思 |
+|---|---|---|
+| `startPower` | 120 | 起始電力（秒），按「出發」開始倒數；只有暫停選單會停 |
+| `creatures` | base 4、max 12 | 第 k 道門 N = min(4 + k, 12) |
+| `hunterRange` | 1 ～ N−1 | 答案的獵獸數範圍（`generatePuzzle` 隨機產題） |
+| `chestBattery` | 40 | 門後寶箱的大電池 |
+| `hiddenBattery` | 15 | 每段側室裡的小電池 |
+| `alarmSeconds` | 20 | 答錯的保全閉鎖，之後換題 |
+| `lowPower`、`criticalPower` | 20、5 | 低電力（轉橘閃爍、走廊轉紅、心跳）、心跳加快 |
+| `pointsPerDoor` | 10 | 每通過一道門的分數 |
+| `corridorColors` | 青、紫、橘 | 每段走廊線條輪流的配色 |
+| `maxSegments` | 2 | 同時存在的走廊段數 |
+| `batteryAnimSeconds`、`powerOutSeconds`、`resumeCountdown` | 0.5、1.5、3 | 電力條滑動、關機演出、暫停回來前的倒數 |
+
+- **走廊**：每一道門是一段 44 m 的模板（`src/world/Segment.ts`）：掃描台、封印艙、大門＋密碼盤、門後 2 m 的寶箱、三間候選側室（每段隨機開一間，`src/world/SideRoom.ts`）。
+  大門開啟時在門後接上下一段；走進下一段後，背後的隔門關上，關好才卸載上一段（`src/core/Level.ts`）。
+- **題目**：`src/run/doors.ts`；答錯換題用 `redeployPuzzle`（`src/puzzle/answer.ts`）。
+- **存檔**：只存最佳紀錄（最高分數、最多門數）和開場是否看過（`src/core/saveData.ts`）。進行中的一局不存檔。
   想重新體驗「第一次」：在瀏覽器 Console 執行 `localStorage.removeItem('sealFacility.save.v1')` 後重新整理。
-- 操作：封印艙前按 E 打開推演（推演分頁）；其他地方按 E（觸控版是右上角的「手套」按鈕）打開手套的升級分頁。Tab 切換分頁、升級分頁按 Enter 升級。
-  手套 Lv1 顯示假設法第一步；Lv2「試算」（每關 1 次）；Lv3 提示句。不顯示任何除法算式或答案。
-- **過關**：大門右側的密碼盤輸入四位數封印解除碼（前兩位偵察體、後兩位獵獸）。答錯會觸發 20 秒保全警報，
-  之後封印艙重新佈署生物（N 不變、換一個 L，用 `redeployPuzzle`）。判定、換題、試算、評級都在 `src/puzzle/answer.ts`。
-- **評級**：S = 一次答對、沒用試算；A = 一次答對、用過試算；B = 觸發過警報後答對。結算顯示「嘗試次數」。
-
-### 關卡資料（`src/levels/levels.ts`）
-
-每一關一筆 `LevelDef`，新增或調整關卡只改這裡：
-
-| 欄位 | 意思 | 第一關 | 第二關 | 第三關（只有資料） |
-|---|---|---|---|---|
-| `id` | 關卡編號 | 1 | 2 | 3 |
-| `roomId` | 存檔用的房間 id（隱藏晶片） | zone01 | zone02 | zone03 |
-| `creatures` | 生物總數 | 5 | 8 | 10 |
-| `contactPoints` | 地上的接觸點 | 18 | 22 | 28 |
-| `randomPuzzle` | true 時改用原本的隨機產題 | false | false | false |
-| `hiddenChip` | 隱藏晶片位置與藏法（`crates` 補給箱後方／`nook` 左牆 U 型死角） | 補給箱後方 | U 型死角 | — |
-| `corridorColor` | 走廊發光線條顏色 | 青 `0x2a8fa3` | 紫 `0x8a4fd8` | — |
-| `requiresScan` | 要先到掃描台掃描才看得到地上的接觸點 | false | true | true |
-
-- 偵察體／獵獸的數量由「總數、接觸點」推回（獵獸 = (L − 2N) ÷ 2），測試會檢查三關都是合理的整數。
-- 評級由作答過程計算（`rateLevel`，`src/puzzle/answer.ts`），沒有寫死在關卡裡。
-- `AREAS` 決定一個區域由哪幾關串起來（區域 1 = 第一關＋第二關）。各關的走廊依序往 −Z 接，每段 44 m，中間是一道隔門（`src/core/Level.ts`、`src/world/Segment.ts`）。
-- **走廊線條換色**：線條材質名稱是 `accent`，`recolorAccent()` 會把它換成該關的顏色。之後換成 glb 走廊時，發光線條的材質也命名為 `accent` 就能跟著換色。
+- **走廊線條換色**：線條材質名稱是 `accent`，`recolorAccent()` 會把它換成該段的顏色。之後換成 glb 走廊時，發光線條的材質也命名為 `accent` 就能跟著換色。
+  側室那一節是程式產生的幾何（`buildSideRoom`），換成 glb 走廊時要另外處理。
 
 ### 主角外觀參數（和場景的融合）
 
@@ -220,7 +214,7 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 - **碰撞不讀模型**：走廊範圍、艙、門、寶箱的碰撞框寫在 `src/world/Segment.ts`（`LAYOUT` 和 `world.add(...)`）。
   模型尺寸和上表差很多時，要一起調整那裡。
 - **生物模型也會拿來做全像投影**：投影時所有材質會換成全像 shader，只看得出剪影和輪廓，所以剪影要好認。
-  場上最多同時有 8 隻投影 + 8 隻真實生物，每隻建議 **3,000 個三角形以內**。
+  場上最多同時有 12 隻投影 + 12 隻真實生物（9 隻以上分上下兩層），每隻建議 **3,000 個三角形以內**。
 - 效能預算（手機等級）：整個場景 draw call 100 以內、三角形 10 萬以內，不開陰影、不做後處理。可以用 `?fps=1` 檢查。
 - 檔案要真的是 glb：`AssetLoader` 會檢查檔頭的 `glTF` 標記，不是 glb 就退回佔位模型。
 
@@ -228,20 +222,20 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 
 ```
 src/
-├─ core/      遊戲迴圈、流程狀態機（Game）、區域（Level：各段走廊＋隔門＋燈光池）、碰撞、補間、音效、存檔、色票與材質
-├─ levels/    關卡資料（LEVELS、AREAS）：純資料，不依賴 three.js
-├─ world/     場景實體：一段走廊（Segment）、封印艙、全像投影、掃描台、門、寶箱、警示燈、氛圍效果
+├─ core/      遊戲迴圈、流程狀態機（Game）、無限走廊（Level：串接／卸載段落＋隔門＋燈光池）、碰撞、補間、音效、存檔、色票與材質
+├─ run/       電力限時探索的規則：設定（RUN_CONFIG）、電力、每道門的題目、最佳紀錄（純邏輯）
+├─ world/     場景實體：一段走廊（Segment）、側室、電池、封印艙、全像投影、掃描台、門、寶箱、警示燈、生物小圖、氛圍效果
 ├─ player/    輸入（鍵鼠／觸控統一介面）、角色控制、追尾鏡頭
-├─ puzzle/    純邏輯（不依賴 three.js）：生物種類、讀數、產題、推演狀態機、評級
-├─ ui/        HUD、觸控搖桿、推演手套面板、標題／結算畫面、CSS
+├─ puzzle/    純邏輯（不依賴 three.js）：生物種類、讀數、產題、封印解除碼的判定與換題
+├─ ui/        HUD（電力條）、觸控搖桿、推演手套面板（數線）、密碼盤、暫停選單、開場、標題／任務結束畫面、CSS
 └─ assets/    AssetLoader、資產清單、佔位模型
-tests/        Vitest：puzzle 全部邏輯，以及碰撞、互動判定、按住連發
+tests/        Vitest：puzzle、run 的全部邏輯，以及存檔、碰撞、互動判定、燈光池、數線、開場點擊規則
 ```
 
 ### puzzle/ 的擴充點（給之後的里程碑）
 
 - **生物種類**是清單（`SpeciesDef { id, name, legs }`），新增種類不用改邏輯。
 - **`Modifier`**：改變每隻生物的受力點數，例如里程碑 2 的重力靴（`legsOf: (s, legs) => legs - 2`）。
-- **作答**（`answer.ts`）：`checkCode`、`trialPoints`、`rateLevel`、`redeployPuzzle`（答錯換題，用 `generatePuzzle`）。
+- **作答**（`answer.ts`）：`checkCode`、`redeployPuzzle`（答錯換題，用 `generatePuzzle`）。
 
 設計與實作上的細節決定記在 [DECISIONS.md](DECISIONS.md)，待確認事項在 [QUESTIONS.md](QUESTIONS.md)。

@@ -172,6 +172,17 @@ export class PlayerController {
     this.model.rotation.x = speed01 * 0.12;
   }
 
+  /**
+   * 電力耗盡的關機動作（沒有跪下的動作檔，用程式做）：動畫停住、上身往前垂、整個人往下沉。
+   * k：0 = 正常、1 = 完全關機。
+   */
+  shutdown(k: number): void {
+    this.velocity.set(0, 0, 0);
+    this.model.rotation.x = k * 0.55;
+    this.model.position.y = -k * 0.32;
+    this.object.scale.y = 1 - k * 0.08;
+  }
+
   /** 除錯用：目前的混合狀態 */
   debugBlend(): { speed: number; idle: number | null; walk: number | null; run: number | null } {
     return {

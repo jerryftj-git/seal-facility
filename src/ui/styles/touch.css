@@ -69,7 +69,7 @@
   font-weight: 600;
   color: var(--text);
   border-radius: 50%;
-  border: 2px solid var(--glove);
+  border: 2px solid var(--cyan);
   background: rgba(46, 230, 240, 0.18);
   box-shadow: 0 0 24px rgba(46, 230, 240, 0.45);
   touch-action: none;

@@ -9,9 +9,9 @@ export class TitleScreen {
   private readonly root: HTMLElement;
 
   /**
-   * @param best 各關最佳評級（例如 [['第一關', 'S'], ['第二關', 'A']]）；有的話在按鈕下方顯示一行小字
+   * @param best 最佳紀錄（通過門數、分數）；有的話在按鈕下方顯示「最佳：第 X 門 · Y 分」
    */
-  constructor(parent: HTMLElement, introSeen: boolean, onStart: (playIntro: boolean) => void, best: [string, string][] = []) {
+  constructor(parent: HTMLElement, introSeen: boolean, onStart: (playIntro: boolean) => void, best: { doors: number; score: number } | null = null) {
     this.root = el(
       'div',
       'screen title-screen',
@@ -22,7 +22,7 @@ export class TitleScreen {
         <p class="flavor">廢棄研究設施深處，封印艙擋住了去路。</p>
         <button class="btn-primary" type="button">開始潛入</button>
         ${introSeen ? '<button class="btn-link" type="button">重看開場</button>' : ''}
-        ${best.length ? `<div class="title-best">最佳評級　${best.map(([n, g]) => `${n}<b>${g}</b>`).join('　')}</div>` : ''}
+        ${best ? `<div class="title-best">最佳：第 <b>${best.doors}</b> 門 · <b>${best.score}</b> 分</div>` : ''}
       </div>`,
     );
     parent.appendChild(this.root);

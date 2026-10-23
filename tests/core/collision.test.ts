@@ -29,6 +29,14 @@ describe('CollisionWorld', () => {
     expect(w.resolve({ x: 0, z: 0 }, 0.35)).toEqual({ x: 0, z: 0 });
   });
 
+  it('卸載一段走廊時，只移除那一段的障礙', () => {
+    const w = world();
+    w.add({ name: 'a', tag: 'seg1', minX: -1, maxX: 1, minZ: 4, maxZ: 5 });
+    w.add({ name: 'b', tag: 'seg2', minX: -1, maxX: 1, minZ: -6, maxZ: -5 });
+    w.removeTag('seg1');
+    expect(w.obstacles.map((o) => o.name)).toEqual(['door', 'b']);
+  });
+
   it('isFree：牆外、天花板上、障礙物內都不行；高度以上可以通過矮障礙', () => {
     const w = world();
     w.add({ name: 'chest', minX: 1, maxX: 2, minZ: 5, maxZ: 6, height: 0.6 });
@@ -44,7 +52,7 @@ describe('CollisionWorld', () => {
 describe('nearestInteractable', () => {
   const make = (id: 'pod' | 'chest', x: number, on = true): Interactable => ({
     id,
-    level: 1,
+    door: 1,
     label: id,
     x,
     z: 0,

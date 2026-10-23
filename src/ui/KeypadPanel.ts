@@ -4,7 +4,7 @@ import './styles/keypad.css';
 
 /**
  * - input：可以輸入
- * - scanFirst：第二關還沒掃描，鎖住
+ * - scanFirst：還沒掃描地面，鎖住
  * - alarm：答錯，保全系統啟動，倒數中鎖住
  * - success：答對，封印解除
  */
@@ -21,7 +21,7 @@ const DESC = '四位數：前兩位是偵察體的數量，後兩位是獵獸的
 
 /**
  * 大門的「封印解除碼」面板。數字鍵 0–9 輸入、Backspace 刪除、Enter 或「確認」送出（沒填滿四位時確認鈕停用）。
- * 觸控版顯示螢幕鍵盤。E／Esc 離開。
+ * 觸控版顯示螢幕鍵盤。E 離開（Esc 是暫停）。
  */
 export class KeypadPanel {
   private readonly root: HTMLElement;
@@ -130,7 +130,8 @@ export class KeypadPanel {
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (!this.open_) return;
-    if (e.code === 'KeyE' || e.code === 'Escape') {
+    // E 離開；Esc 交給遊戲打開暫停選單
+    if (e.code === 'KeyE') {
       e.preventDefault();
       if (!e.repeat && this.mode !== 'success') this.cb.onClose();
       return;

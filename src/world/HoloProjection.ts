@@ -61,7 +61,10 @@ export class HoloProjection {
         const feet = footPoints(model, id);
         applyMaterial(model, mat);
         // 每個觸地點一個發光小圓
-        footGeo ??= new THREE.CircleGeometry(0.05, 12);
+        if (!footGeo) {
+          footGeo = new THREE.CircleGeometry(0.05, 12);
+          footGeo.userData.shared = true;
+        }
         for (const p of feet) {
           const dot = new THREE.Mesh(footGeo, mat);
           dot.rotation.x = -Math.PI / 2;
@@ -81,9 +84,11 @@ export class HoloProjection {
       this.slots.push({ root, forms, materials, current: initial[i], previous: null, morph: 1 });
     });
 
-    // 投影底座：一條淡淡的發光平面
-    const first = positions[0];
-    const last = positions[positions.length - 1];
+    // 投影底座：一條淡淡的發光平面（分兩層時放在下層）
+    const minY = Math.min(...positions.map((p) => p.y));
+    const lowerRow = positions.filter((p) => p.y < minY + 0.1);
+    const first = lowerRow[0];
+    const last = lowerRow[lowerRow.length - 1];
     const len = first.distanceTo(last) + 0.9;
     const mid = first.clone().add(last).multiplyScalar(0.5);
     this.base = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.7), glowMaterial(PALETTE.cyan, 0.12));
@@ -96,6 +101,13 @@ export class HoloProjection {
     this.base.renderOrder = 3;
     this.object.add(this.base);
     this.setOpacity(0);
+  }
+
+  /** 卸載：釋放每隻投影的 shader 材質 */
+  dispose(): void {
+    for (const s of this.slots) for (const m of s.materials) m.dispose();
+    (this.base.material as THREE.Material).dispose();
+    this.base.geometry.dispose();
   }
 
   /** 讓第 slot 隻變成 species */

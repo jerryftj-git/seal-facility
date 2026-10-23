@@ -1,14 +1,14 @@
 import type { InputMode } from '../player/deviceDetect';
 import { el, ICONS } from './icons';
+import { RUN_CONFIG } from '../run/runConfig';
 import './styles/briefing.css';
 
 /**
- * 任務簡報：開場通訊之後顯示，告訴玩家這一關要做的三件事和操作方式。
+ * 任務簡報：開場通訊之後顯示，告訴玩家這一局的規則（電力、寶箱電池、分數）和操作方式。
  * 只說「目標」，不說「怎麼算」（數學規律留給玩家自己發現）。
  * 只有按「出發」（或 Enter）才會關閉，避免小朋友亂按鍵就把說明跳過。
  */
 export function showBriefing(parent: HTMLElement, mode: InputMode): Promise<void> {
-  const interact = mode === 'touch' ? '<b>互動鍵</b>' : '<kbd>E</kbd>';
   const controls =
     mode === 'touch'
       ? `<span>${ICONS.joystick}左手搖桿：移動</span><span>${ICONS.drag}右手拖曳：轉視角</span><span>${ICONS.button}互動鍵</span>`
@@ -18,12 +18,8 @@ export function showBriefing(parent: HTMLElement, mode: InputMode): Promise<void
     'screen briefing',
     `<div class="screen-box holo briefing-box">
       <div class="sub">MISSION BRIEFING</div>
-      <h2>任務簡報：回收資料晶片</h2>
-      <ol class="brief-steps">
-        <li><i>1</i><div><b>走到封印艙</b><small>跟著發光的 ◆ 標記走，靠近後按 ${interact} 打開推演手套。</small></div></li>
-        <li><i>2</i><div><b>解開封印</b><small>用推演手套想一想：偵察體和獵獸各有幾隻？到大門的密碼盤輸入答案，只有一次機會。</small></div></li>
-        <li><i>3</i><div><b>拿到資料晶片</b><small>穿過大門，打開走廊盡頭的寶箱。</small></div></li>
-      </ol>
+      <h2>任務簡報</h2>
+      <p class="brief-text">護衛機器人，你只剩 ${RUN_CONFIG.startPower} 秒電力。每解開一道封印門，寶箱裡有電池。走得越深，分數越高。電力耗盡前能走多遠？</p>
       <div class="brief-controls">${controls}</div>
       <button class="btn-primary" type="button">出發</button>
       <div class="brief-tip">任務說明隨時可以按右上角的 <b>？</b> 再看一次</div>

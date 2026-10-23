@@ -52,6 +52,8 @@ export function cached(key: string, make: () => THREE.BufferGeometry): THREE.Buf
   let g = cache.get(key);
   if (!g) {
     g = make();
+    // 多個物件共用：卸載一段走廊時不要釋放它
+    g.userData.shared = true;
     cache.set(key, g);
   }
   return g;

@@ -3,8 +3,6 @@ import { computeReadings } from './readings';
 import type { Rng } from './rng';
 import { HUNTER, PHASE1_SPECIES, SCOUT, type Counts } from './species';
 
-export type Grade = 'S' | 'A' | 'B';
-
 /** 封印解除碼的位數：前兩位偵察體、後兩位獵獸 */
 export const CODE_LENGTH = 4;
 
@@ -26,27 +24,6 @@ export function checkCode(code: string, answer: Counts): boolean {
   return c !== null && c[SCOUT.id] === (answer[SCOUT.id] ?? 0) && c[HUNTER.id] === (answer[HUNTER.id] ?? 0);
 }
 
-/**
- * 推演手套 Lv2「試算」：如果獵獸有 hunters 隻（其餘都是偵察體），推演出來的接觸點。
- * 只回傳接觸點，不判斷對錯、不提示答案。
- */
-export function trialPoints(puzzle: Puzzle, hunters: number): number {
-  const n = puzzle.readings.N;
-  const h = Math.max(0, Math.min(n, Math.round(hunters)));
-  return computeReadings(puzzle.species, { [SCOUT.id]: n - h, [HUNTER.id]: h }, puzzle.modifiers).L;
-}
-
-/**
- * 評級：
- * - B：觸發過警報（答錯過）
- * - A：一次答對，但用過試算
- * - S：一次答對，沒用試算
- */
-export function rateLevel(r: { alarmed: boolean; trialUsed: boolean }): Grade {
-  if (r.alarmed) return 'B';
-  return r.trialUsed ? 'A' : 'S';
-}
-
 /** 答錯換題的設定：生物總數固定為 N，獵獸 1 到 N−1 隻（偵察體也至少 1 隻） */
 export function redeployConfig(n: number): PuzzleConfig {
   return {
@@ -60,9 +37,8 @@ export function redeployConfig(n: number): PuzzleConfig {
  * 封印艙重新佈署生物：N 不變，用原本的隨機產題（generatePuzzle）換一個組成，
  * 獵獸數在 1 到 N−1 之間，而且和原題不同（所以地上的接觸點一定不同）。
  */
-export function redeployPuzzle(current: Puzzle, rng: Rng): Puzzle {
+export function redeployPuzzle(current: Puzzle, rng: Rng, config: PuzzleConfig = redeployConfig(current.readings.N)): Puzzle {
   const n = current.readings.N;
-  const config = redeployConfig(n);
   const same = (p: Puzzle) => (p.answer[HUNTER.id] ?? 0) === (current.answer[HUNTER.id] ?? 0);
   let p = generatePuzzle(config, rng);
   for (let i = 0; i < 50 && same(p); i++) p = generatePuzzle(config, rng);

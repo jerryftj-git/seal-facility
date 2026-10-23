@@ -20,57 +20,6 @@
   letter-spacing: 0.08em;
 }
 
-.brief-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.brief-steps li {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.brief-steps i {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  font-style: normal;
-  font-family: var(--mono);
-  font-size: 18px;
-  font-weight: 700;
-  color: #031015;
-  background: var(--cyan);
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(46, 230, 240, 0.5);
-}
-
-.brief-steps b {
-  display: block;
-  font-size: 19px;
-}
-
-.brief-steps small {
-  display: block;
-  margin-top: 3px;
-  font-size: 16px;
-  line-height: 1.55;
-  color: var(--text-dim);
-}
-
-.brief-steps small b,
-.brief-tip b {
-  display: inline;
-  font-size: inherit;
-  color: var(--cyan);
-}
-
 .brief-controls {
   display: flex;
   flex-wrap: wrap;
@@ -112,7 +61,14 @@
     gap: 10px;
     padding: 20px 24px;
   }
-  .brief-steps small {
-    font-size: 14px;
   }
+
+.brief-text {
+  max-width: 34em;
+  margin: 4px 0;
+  font-size: clamp(16px, 2.2vw, 19px);
+  line-height: 1.7;
+  text-align: left;
+  color: var(--text);
 }
+

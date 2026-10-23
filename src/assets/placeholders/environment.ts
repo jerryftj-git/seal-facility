@@ -9,7 +9,7 @@ import { box, cached, cyl, mergeParts, type Part } from './build';
 
 export const CORRIDOR = { width: 6, height: 4, length: 4 } as const;
 
-/** 走廊發光線條的預設顏色（第一關） */
+/** 走廊發光線條的預設顏色（青） */
 export const ACCENT_DEFAULT = 0x2a8fa3;
 /** 走廊發光線條的材質名稱：換色時找這個名字（之後換成 glb 走廊，線條材質也命名為 accent） */
 export const ACCENT_NAME = 'accent';
@@ -100,9 +100,10 @@ export function recolorAccent(root: THREE.Object3D, color: number): void {
   });
 }
 
-/** 地圖用：牆面材質（U 型死角的短牆跟走廊同一種） */
-export function wallMaterial(): THREE.Material {
-  return m().wall;
+/** 走廊共用的材質（側室用同一套，看起來是同一棟建築） */
+export function corridorMaterials(): { wall: THREE.Material; floor: THREE.Material; trim: THREE.Material } {
+  const { wall, floor, trim } = m();
+  return { wall, floor, trim };
 }
 
 /** 走廊端牆：牆面在 z = 0，朝 +Z */
@@ -240,7 +241,7 @@ export function buildDoor(): THREE.Object3D {
   return root;
 }
 
-/** 寶箱：lid 的樞紐在後上緣，chip_anchor 是晶片出現的位置 */
+/** 寶箱：lid 的樞紐在後上緣，battery_anchor 是電池出現的位置 */
 export function buildChest(): THREE.Object3D {
   const base = cached('chest-base', () =>
     mergeParts([
@@ -265,7 +266,7 @@ export function buildChest(): THREE.Object3D {
   lid.add(new THREE.Mesh(lidGeo, mat));
   root.add(lid);
   const anchor = new THREE.Object3D();
-  anchor.name = 'chip_anchor';
+  anchor.name = 'battery_anchor';
   anchor.position.set(0, 0.5, 0);
   root.add(anchor);
   return root;

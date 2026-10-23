@@ -1,0 +1,113 @@
+/* HUD 上方正中的電池形電力條 */
+.power {
+  position: absolute;
+  top: calc(14px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  --pw: var(--cyan);
+}
+
+.power-cell {
+  position: relative;
+  width: min(260px, 46vw);
+  height: 30px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 2px solid var(--pw);
+  border-radius: 7px;
+  background: rgba(4, 10, 14, 0.7);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--pw) 35%, transparent);
+}
+
+.power-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pw) 55%, transparent), var(--pw));
+}
+
+.power-sec {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    0 0 4px #000,
+    0 0 8px #000;
+}
+
+.power-nub {
+  width: 6px;
+  height: 12px;
+  border-radius: 0 3px 3px 0;
+  background: var(--pw);
+}
+
+/* 低電力：橘色、閃爍 */
+.power[data-level='low'],
+.power[data-level='critical'],
+.power[data-level='out'] {
+  --pw: #ff9a2e;
+}
+
+.power[data-level='low'] .power-cell {
+  animation: power-blink 1s steps(2) infinite;
+}
+
+.power[data-level='critical'] .power-cell {
+  animation: power-blink 0.5s steps(2) infinite;
+}
+
+@keyframes power-blink {
+  50% {
+    box-shadow: 0 0 22px #ff9a2e;
+    border-color: #ffd29a;
+  }
+}
+
+/* 撿到電池：「+40」往上飄 */
+.power-float {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 12px;
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: #5dffb0;
+  text-shadow: 0 0 12px rgba(93, 255, 176, 0.7);
+  animation: power-float 1.4s ease-out forwards;
+}
+
+@keyframes power-float {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+@media (max-width: 700px) {
+  .power-cell {
+    width: min(200px, 52vw);
+    height: 26px;
+  }
+  .power-sec {
+    font-size: 15px;
+  }
+}

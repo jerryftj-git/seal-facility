@@ -13,8 +13,10 @@ export const CREATURE_DISPLAY_SCALE = 0.85;
 /**
  * 8 隻以上時的排法：排成一列（不前後交錯）、拉開到艙的兩端、整體縮小一點，
  * 從推演鏡頭看 8 隻獵獸也不會重疊（用輪廓逐像素量過）。7 隻以下維持原本的排法。
+ * 9 隻以上（最多 12）：分上下兩層，下層在前、上層在後面的架子上，每層一列。
  */
 const CROWDED = { from: 8, halfSpan: 2.1, scale: 0.82 } as const;
+const TIERS = { from: 9, upperY: 1.3, lowerZ: 0.22, upperZ: -0.3 } as const;
 
 /** n 隻時每隻生物的顯示縮放（全像投影與真實生物共用） */
 export function creatureScale(n: number): number {
@@ -75,6 +77,17 @@ export class SealPod {
     this.light.position.set(0, 2.1, 0.2);
     this.light.visible = false;
     this.object.add(this.light, this.creatures);
+    // 9 隻以上：艙內加一層玻璃架子（上層生物站在上面）
+    if (readings.N >= TIERS.from) {
+      const shelf = new THREE.Mesh(
+        new THREE.BoxGeometry(4.8, 0.04, 0.75),
+        new THREE.MeshStandardMaterial({ color: 0x2c4a55, emissive: 0x0f3b44, transparent: true, opacity: 0.55, roughness: 0.4 }),
+      );
+      shelf.position.set(0, TIERS.upperY - 0.02, TIERS.upperZ);
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: PALETTE.cyan }));
+      edge.position.set(0, TIERS.upperY, TIERS.upperZ + 0.37);
+      this.object.add(shelf, edge);
+    }
   }
 
   private attach(anchorName: string, mesh: THREE.Mesh, fallbackX: number): void {
@@ -89,10 +102,22 @@ export class SealPod {
   /** 第 i 個 slot（共 n 個）在艙內的本地座標；index 0 在 slots_start 那端 */
   slotLocal(i: number, n: number): THREE.Vector3 {
     const t = n <= 1 ? 0.5 : i / (n - 1);
+    const mid = this.start.clone().lerp(this.end, 0.5);
+    const half = this.start.clone().sub(mid).setLength(CROWDED.halfSpan);
+    if (n >= TIERS.from) {
+      // 兩層：前 ceil(n/2) 隻在下層，其餘在上層
+      const lower = Math.ceil(n / 2);
+      const upper = i >= lower;
+      const count = upper ? n - lower : lower;
+      const j = upper ? i - lower : i;
+      const tt = count <= 1 ? 0.5 : j / (count - 1);
+      const p = mid.clone().add(half).lerp(mid.clone().sub(half), tt);
+      p.z += upper ? TIERS.upperZ : TIERS.lowerZ;
+      if (upper) p.y = TIERS.upperY;
+      return p;
+    }
     if (n >= CROWDED.from) {
       // 一列排開，兩端拉到 ±halfSpan
-      const mid = this.start.clone().lerp(this.end, 0.5);
-      const half = this.start.clone().sub(mid).setLength(CROWDED.halfSpan);
       return mid.clone().add(half).lerp(mid.clone().sub(half), t);
     }
     const margin = n < 8 ? (8 - n) * 0.06 : 0;
@@ -123,6 +148,7 @@ export class SealPod {
     slots.forEach((id, i) => {
       const c = this.assets.get(SPECIES_ASSET[id] ?? 'scout').scene;
       c.position.copy(this.slotLocal(i, slots.length));
+      c.userData.baseY = c.position.y;
       c.rotation.y = CREATURE_FACING + (Math.random() - 0.5) * 0.25;
       c.scale.setScalar(creatureScale(slots.length));
       this.creatures.add(c);
@@ -210,7 +236,7 @@ export class SealPod {
     const mat = this.glass?.material as THREE.MeshStandardMaterial | undefined;
     if (mat && !this.solved) mat.emissiveIntensity = 0.85 + Math.sin(time * 1.4) * 0.25;
     this.creatures.children.forEach((c, i) => {
-      c.position.y = 0.35 + Math.sin(time * 1.3 + i) * 0.01;
+      c.position.y = (c.userData.baseY ?? 0.35) + Math.sin(time * 1.3 + i) * 0.01;
     });
   }
 

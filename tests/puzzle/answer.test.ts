@@ -5,14 +5,12 @@ import {
   createRng,
   formatCode,
   parseCode,
-  rateLevel,
   redeployPuzzle,
-  trialPoints,
 } from '../../src/puzzle';
 import { makePuzzle } from './helpers';
 
 describe('封印解除碼', () => {
-  const lv1 = makePuzzle(1, 4); // 第一關：5 隻、18 個接觸點
+  const lv1 = makePuzzle(1, 4); // 5 隻、18 個接觸點
 
   it('0104 = 偵察體 1、獵獸 4：答對', () => {
     expect(checkCode('0104', lv1.answer)).toBe(true);
@@ -41,35 +39,6 @@ describe('封印解除碼', () => {
     expect(formatCode({ scout: 1, hunter: 4 })).toBe('0104');
     expect(formatCode({ scout: 12, hunter: 3 })).toBe('1203');
     expect(parseCode('1203')).toEqual({ scout: 12, hunter: 3 });
-  });
-});
-
-describe('推演手套 Lv2 試算', () => {
-  const lv1 = makePuzzle(1, 4);
-
-  it('第一關：獵獸 4 隻 → 18、獵獸 3 隻 → 16、0 隻 → 10、5 隻 → 20', () => {
-    expect(trialPoints(lv1, 4)).toBe(18);
-    expect(trialPoints(lv1, 3)).toBe(16);
-    expect(trialPoints(lv1, 0)).toBe(10);
-    expect(trialPoints(lv1, 5)).toBe(20);
-  });
-
-  it('超出 0～N 的輸入會被夾回範圍內', () => {
-    expect(trialPoints(lv1, -2)).toBe(10);
-    expect(trialPoints(lv1, 9)).toBe(20);
-  });
-});
-
-describe('評級', () => {
-  it('一次答對、沒用試算 = S', () => {
-    expect(rateLevel({ alarmed: false, trialUsed: false })).toBe('S');
-  });
-  it('一次答對、用過試算 = A', () => {
-    expect(rateLevel({ alarmed: false, trialUsed: true })).toBe('A');
-  });
-  it('觸發過警報後答對 = B（不管有沒有用試算）', () => {
-    expect(rateLevel({ alarmed: true, trialUsed: false })).toBe('B');
-    expect(rateLevel({ alarmed: true, trialUsed: true })).toBe('B');
   });
 });
 

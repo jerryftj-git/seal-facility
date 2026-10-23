@@ -16,7 +16,7 @@ interface PoolSlot {
  * 而且光源數量一變，所有材質都要重新編譯 shader（會卡一下）。所以：
  * - 各物件自己的 PointLight 一律 visible = false（只當「設定」：位置、顏色、亮度、範圍）
  * - 場景裡只有 size 盞真的光源，每幀照最近 size 個設定亮；換人時先淡出、搬過去、再淡入
- * 第一段走廊的燈剛好都是最近的那幾盞，所以第一關的打光和以前完全一樣。
+ * 玩家所在那一段的燈剛好都是最近的那幾盞，所以打光和只有一段時一樣。
  */
 export class LightPool {
   readonly object = new THREE.Group();
@@ -44,6 +44,21 @@ export class LightPool {
     for (const s of sources) if (s) this.sources.push(s);
   }
 
+  /** 卸載一段走廊時移除它的燈光設定（借給它的燈立刻關掉，下一幀換人） */
+  remove(...sources: (THREE.PointLight | null)[]): void {
+    for (const src of sources) {
+      if (!src) continue;
+      const i = this.sources.indexOf(src);
+      if (i >= 0) this.sources.splice(i, 1);
+      for (const p of this.slots) {
+        if (p.source !== src) continue;
+        p.source = null;
+        p.fade = 0;
+        p.light.intensity = 0;
+      }
+    }
+  }
+
   clear(): void {
     this.sources.length = 0;
     for (const s of this.slots) {
@@ -53,7 +68,7 @@ export class LightPool {
     }
   }
 
-  /** instant：直接到位、不淡入（換關卡、重新開始時） */
+  /** instant：直接到位、不淡入（開新的一局時） */
   update(dt: number, focus: THREE.Vector3, instant = false): void {
     const wanted = this.sources
       .map((s) => ({ s, d: s.getWorldPosition(this.tmp).distanceToSquared(focus) }))
