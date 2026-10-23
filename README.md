@@ -189,6 +189,7 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 | `hunterRange` | 1 ～ N−1 | 答案的獵獸數範圍（`generatePuzzle` 隨機產題） |
 | `chestBattery` | 40 | 門後寶箱的大電池 |
 | `hiddenBattery` | 15 | 每段側室裡的小電池 |
+| `supply` | always 3、gaps [3, 5] | 哪些門有補給（寶箱＋側室電池）：前 3 道每道都有，之後隨機隔 3 或 5 道才有一次 |
 | `alarmSeconds` | 20 | 答錯的保全閉鎖，之後換題 |
 | `lowPower`、`criticalPower` | 20、5 | 低電力（轉橘閃爍、走廊轉紅、心跳）、心跳加快 |
 | `pointsPerDoor` | 10 | 每通過一道門的分數 |
@@ -196,7 +197,7 @@ blender -b --python tools/mixamo-to-glb.py -- --character "$HOME/下載/Standard
 | `maxSegments` | 2 | 同時存在的走廊段數 |
 | `batteryAnimSeconds`、`powerOutSeconds`、`resumeCountdown` | 0.5、1.5、3 | 電力條滑動、關機演出、暫停回來前的倒數 |
 
-- **走廊**：每一道門是一段 44 m 的模板（`src/world/Segment.ts`）：掃描台、封印艙、大門＋密碼盤、門後 2 m 的寶箱、三間候選側室（每段隨機開一間，`src/world/SideRoom.ts`）。
+- **走廊**：每一道門是一段 44 m 的模板（`src/world/Segment.ts`）：掃描台、封印艙、大門＋密碼盤、門後 2 m 的寶箱、三間候選側室（有補給的門才隨機開一間，`src/world/SideRoom.ts`）。
   大門開啟時在門後接上下一段；走進下一段後，背後的隔門關上，關好才卸載上一段（`src/core/Level.ts`）。
 - **題目**：`src/run/doors.ts`；答錯換題用 `redeployPuzzle`（`src/puzzle/answer.ts`）。
 - **存檔**：只存最佳紀錄（最高分數、最多門數）和開場是否看過（`src/core/saveData.ts`）。進行中的一局不存檔。

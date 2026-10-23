@@ -65,8 +65,11 @@ export interface SegmentOptions {
   readonly puzzle: Puzzle;
   /** 走廊線條顏色 */
   readonly accentColor: number;
-  /** 開哪一間側室（LAYOUT.sideRooms 的編號） */
-  readonly room: number;
+  /**
+   * 這一道門有沒有電池、開哪一間側室（LAYOUT.sideRooms 的編號）。
+   * null = 這一道門沒有補給：門後不放寶箱、也沒有側室與隱藏小電池。
+   */
+  readonly room: number | null;
   /** 入口放端牆（第 1 段）；之後的段落入口是 Level 管的隔門 */
   readonly startCap: boolean;
 }
@@ -83,9 +86,11 @@ export class Segment {
   readonly pod: SealPod;
   readonly holo: HoloProjection;
   readonly door: Door;
-  readonly chest: Chest;
+  /** 門後寶箱（沒有補給的門是 null） */
+  readonly chest: Chest | null;
   readonly beacons: Beacon[] = [];
-  readonly battery: Battery;
+  /** 側室裡的隱藏小電池（沒有補給的門是 null） */
+  readonly battery: Battery | null;
   readonly scanStation = new ScanStation();
   /** 大門右側門框上的密碼盤 */
   readonly keypad = new Keypad();
@@ -93,7 +98,7 @@ export class Segment {
   /** 交給 LightPool 的燈光設定（本身不顯示） */
   readonly corridorLights: THREE.PointLight[] = [];
   readonly doorObstacle: Obstacle;
-  readonly roomSpot: SideRoomSpot;
+  readonly roomSpot: SideRoomSpot | null;
   private readonly dust: Dust;
   /** 側室裡電池照在牆上、從門洞漏到走廊地上的光暈 */
   private readonly glows: THREE.Mesh[] = [];
@@ -109,15 +114,16 @@ export class Segment {
     const add = (r: Rect & { name: string; height?: number }) => world.add({ ...r, minZ: r.minZ + oz, maxZ: r.maxZ + oz, tag });
 
     // 走廊模組（發光線條換成這一段的顏色）；開側室的那一節換成有門洞的版本
-    this.roomSpot = LAYOUT.sideRooms[o.room % LAYOUT.sideRooms.length];
+    const spot = o.room === null ? null : LAYOUT.sideRooms[o.room % LAYOUT.sideRooms.length];
+    this.roomSpot = spot;
     for (let z = LAYOUT.start; z > LAYOUT.end; z -= CORRIDOR.length) {
-      if (z === this.roomSpot.moduleZ) continue;
+      if (z === spot?.moduleZ) continue;
       const seg = assets.get('corridor_straight').scene;
       seg.position.z = z;
       recolorAccent(seg, o.accentColor);
       this.root.add(seg);
     }
-    this.root.add(buildSideRoom(this.roomSpot, o.accentColor));
+    if (spot) this.root.add(buildSideRoom(spot, o.accentColor));
     if (o.startCap) {
       const capStart = assets.get('corridor_end').scene;
       capStart.position.z = LAYOUT.start;
@@ -126,14 +132,14 @@ export class Segment {
     }
 
     // 走廊兩側的實心範圍（側室所在的那一段留空）
-    const zc = roomCenterZ(this.roomSpot);
     const RW = SIDE_ROOM.width / 2;
     for (const side of [-1, 1] as const) {
       const x = side > 0 ? { minX: hw, maxX: SIDE_ROOM.outer } : { minX: -SIDE_ROOM.outer, maxX: -hw };
-      if (side === this.roomSpot.side) {
+      if (spot && side === spot.side) {
+        const zc = roomCenterZ(spot);
         add({ name: `wall${side}a`, ...x, minZ: zc + RW, maxZ: LAYOUT.start });
         add({ name: `wall${side}b`, ...x, minZ: LAYOUT.end, maxZ: zc - RW });
-        sideRoomBlocks(this.roomSpot).forEach((r, i) => add({ name: `room${i}`, ...r }));
+        sideRoomBlocks(spot).forEach((r, i) => add({ name: `room${i}`, ...r }));
       } else {
         add({ name: `wall${side}`, ...x, minZ: LAYOUT.end, maxZ: LAYOUT.start });
       }
@@ -175,18 +181,20 @@ export class Segment {
       this.root.add(b.object);
     });
 
-    // 門後寶箱（大電池）
-    this.chest = new Chest(assets.get('chest'));
-    this.chest.object.position.set(LAYOUT.chest.x, 0, LAYOUT.chest.z);
-    this.root.add(this.chest.object);
-    add({
-      name: 'chest',
-      minX: LAYOUT.chest.x - 0.5,
-      maxX: LAYOUT.chest.x + 0.5,
-      minZ: LAYOUT.chest.z - 0.35,
-      maxZ: LAYOUT.chest.z + 0.35,
-      height: 0.6,
-    });
+    // 門後寶箱（大電池）：只有有補給的門才放
+    this.chest = spot ? new Chest(assets.get('chest')) : null;
+    if (this.chest) {
+      this.chest.object.position.set(LAYOUT.chest.x, 0, LAYOUT.chest.z);
+      this.root.add(this.chest.object);
+      add({
+        name: 'chest',
+        minX: LAYOUT.chest.x - 0.5,
+        maxX: LAYOUT.chest.x + 0.5,
+        minZ: LAYOUT.chest.z - 0.35,
+        maxZ: LAYOUT.chest.z + 0.35,
+        height: 0.6,
+      });
+    }
 
     // 掃描台
     this.scanStation.object.position.set(LAYOUT.scan.x, 0, LAYOUT.scan.z);
@@ -232,22 +240,41 @@ export class Segment {
     this.root.add(this.dust.object);
 
     // 側室最裡面的隱藏小電池；光暈照在房間後牆，也從門洞漏到走廊地上（從主走廊就看得到一閃一閃）
-    const bp = roomBatteryPos(this.roomSpot);
-    this.battery = new Battery(bp);
-    this.root.add(this.battery.object);
-    const s = this.roomSpot.side;
-    const wallGlow = batteryWallGlow(2.6);
-    wallGlow.rotation.y = -s * (Math.PI / 2);
-    wallGlow.position.set(s * (hw + SIDE_ROOM.depth - 0.02), 1.4, zc);
-    const floorGlow = batteryWallGlow(2.4);
-    floorGlow.rotation.x = -Math.PI / 2;
-    floorGlow.position.set(s * (hw - 0.9), 0.02, zc);
-    this.glows.push(wallGlow, floorGlow);
-    this.root.add(wallGlow, floorGlow);
-
+    this.battery = null;
     const door = o.index;
+    const extra: Interactable[] = [];
+    if (spot) {
+      const bp = roomBatteryPos(spot);
+      const zc = roomCenterZ(spot);
+      const battery = new Battery(bp);
+      this.battery = battery;
+      this.root.add(battery.object);
+      const s = spot.side;
+      const wallGlow = batteryWallGlow(2.6);
+      wallGlow.rotation.y = -s * (Math.PI / 2);
+      wallGlow.position.set(s * (hw + SIDE_ROOM.depth - 0.02), 1.4, zc);
+      const floorGlow = batteryWallGlow(2.4);
+      floorGlow.rotation.x = -Math.PI / 2;
+      floorGlow.position.set(s * (hw - 0.9), 0.02, zc);
+      this.glows.push(wallGlow, floorGlow);
+      this.root.add(wallGlow, floorGlow);
+      extra.push({ id: 'battery', door, label: '拾取電池', x: bp.x, z: bp.z + oz, radius: 1.5, enabled: () => !battery.picked });
+    }
+    const chest = this.chest;
+    if (chest) {
+      extra.push({
+        id: 'chest',
+        door,
+        label: '開啟寶箱',
+        x: LAYOUT.chest.x,
+        z: LAYOUT.chest.z + 0.8 + oz,
+        radius: 1.6,
+        enabled: () => this.door.isOpen && !chest.opened,
+      });
+    }
+
     this.interactables = [
-      { id: 'battery', door, label: '拾取電池', x: bp.x, z: bp.z + oz, radius: 1.5, enabled: () => !this.battery.picked },
+      ...extra,
       { id: 'scan', door, label: '掃描接觸點', x: LAYOUT.scan.x, z: LAYOUT.scan.z + oz, radius: 1.5, enabled: () => !this.scanStation.done },
       {
         id: 'pod',
@@ -266,15 +293,6 @@ export class Segment {
         z: LAYOUT.keypad.z + oz,
         radius: 1.5,
         enabled: () => !this.pod.solved,
-      },
-      {
-        id: 'chest',
-        door,
-        label: '開啟寶箱',
-        x: LAYOUT.chest.x,
-        z: LAYOUT.chest.z + 0.8 + oz,
-        radius: 1.6,
-        enabled: () => this.door.isOpen && !this.chest.opened,
       },
     ];
   }
@@ -320,14 +338,16 @@ export class Segment {
 
   update(dt: number, time: number): void {
     this.door.update(dt);
-    this.chest.update(dt, time);
+    this.chest?.update(dt, time);
     this.pod.update(time);
     this.beacons.forEach((b) => b.update(time));
     this.dust.update(time);
-    this.battery.update(dt, time);
-    for (const g of this.glows) {
-      g.visible = !this.battery.picked;
-      (g.material as THREE.MeshBasicMaterial).opacity = 0.18 + this.battery.blink * 0.7;
+    if (this.battery) {
+      this.battery.update(dt, time);
+      for (const g of this.glows) {
+        g.visible = !this.battery.picked;
+        (g.material as THREE.MeshBasicMaterial).opacity = 0.18 + this.battery.blink * 0.7;
+      }
     }
     this.scanStation.update(time);
     this.keypad.update(time);

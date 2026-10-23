@@ -13,6 +13,12 @@ export const RUN_CONFIG = {
   chestBattery: 40,
   /** 每段走廊側室裡的隱藏小電池（秒） */
   hiddenBattery: 15,
+  /**
+   * 哪些門有補給（門後寶箱＋側室小電池）：前 always 道每道都有；
+   * 之後下一道有補給的門隨機隔 gaps 其中一個（例如第 3 門之後是第 6 或第 8 門）。
+   * 沒有補給的門：門後不放寶箱、也沒有側室。
+   */
+  supply: { always: 3, gaps: [3, 5] as readonly number[] },
   /** 答錯的保全閉鎖（秒）。倒數結束後換題 */
   alarmSeconds: 20,
   /** 低電力警告：電力條轉橘閃爍、走廊轉紅、心跳聲 */

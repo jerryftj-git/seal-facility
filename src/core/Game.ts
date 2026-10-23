@@ -4,7 +4,7 @@ import { HUNTER, SCOUT } from '../puzzle/species';
 import { answerSlots, checkCode, createRng, redeployPuzzle, type Puzzle, type Rng } from '../puzzle';
 import { RUN_CONFIG } from '../run/runConfig';
 import { charge, drain, powerLevel } from '../run/power';
-import { corridorColor, doorPuzzle, doorPuzzleConfig, pickSideRoom, scoreFor } from '../run/doors';
+import { corridorColor, doorPuzzle, doorPuzzleConfig, nextSupplyDoor, pickSideRoom, scoreFor } from '../run/doors';
 import { updateBest } from '../run/record';
 import { loadSave, writeSave, type SaveData } from './saveData';
 import type { Segment } from '../world/Segment';
@@ -98,6 +98,8 @@ export class Game {
   power: number = RUN_CONFIG.startPower;
   /** 這一局撿到的隱藏小電池 */
   batteries = 0;
+  /** 下一道有補給（寶箱＋側室電池）的門 */
+  private nextSupply = 1;
   /** 計時中（按「出發」之後、任務結束之前） */
   running = false;
   /** 暫停：menu = 暫停選單、help = 「？」簡報；resumeLeft > 0 時是回到遊戲前的倒數 */
@@ -257,6 +259,7 @@ export class Game {
     this.keypad.close();
 
     this.door = 1;
+    this.nextSupply = 1;
     this.doorsPassed = 0;
     this.batteries = 0;
     this.power = RUN_CONFIG.startPower;
@@ -285,11 +288,16 @@ export class Game {
     this.setObjective('scan');
   }
 
-  /** 接上第 k 道門的那一段：題目（N = 4 + k）、配色、側室都由規則產生 */
+  /** 接上第 k 道門的那一段：題目（N = 4 + k）、配色、有沒有補給、開哪一間側室都由規則產生 */
   private addSegment(k: number): Segment {
     const puzzle = doorPuzzle(k, this.rng);
     this.runs.set(k, { puzzle, pending: null, lineRevealed: false });
-    return this.level.addSegment(k, puzzle, corridorColor(k), pickSideRoom(LAYOUT.sideRooms.length, this.rng));
+    let room: number | null = null;
+    if (k === this.nextSupply) {
+      this.nextSupply = nextSupplyDoor(k, this.rng);
+      room = pickSideRoom(LAYOUT.sideRooms.length, this.rng);
+    }
+    return this.level.addSegment(k, puzzle, corridorColor(k), room);
   }
 
   private retry(): void {
@@ -622,7 +630,8 @@ export class Game {
     seg.doorObstacle.enabled = false;
 
     await this.leaveFocus(0.5);
-    this.setObjective('chest');
+    // 沒有補給的門：門後沒有寶箱，直接前往下一道
+    this.setObjective(seg.chest ? 'chest' : 'next');
     this.enterExplore();
   }
 
@@ -646,9 +655,10 @@ export class Game {
 
   /** 門後寶箱（約 1.5 秒）：大電池 +40 秒 */
   private async openChest(): Promise<void> {
+    const chest = this.seg.chest;
+    if (!chest) return;
     this.state = 'cinematic';
     this.syncControls();
-    const chest = this.seg.chest;
     await chest.open(this.tweens, this.audio);
     chest.battery.visible = false;
     this.addPower(RUN_CONFIG.chestBattery);
@@ -658,7 +668,7 @@ export class Game {
   }
 
   private pickBattery(seg: Segment): void {
-    if (seg.battery.picked) return;
+    if (!seg.battery || seg.battery.picked) return;
     seg.battery.pick();
     this.batteries++;
     this.addPower(RUN_CONFIG.hiddenBattery);

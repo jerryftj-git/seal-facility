@@ -53,7 +53,7 @@ export class Level {
   }
 
   /** 接上第 index 道門的那一段（題目、側室由呼叫端決定） */
-  addSegment(index: number, puzzle: Puzzle, accentColor: number, room: number): Segment {
+  addSegment(index: number, puzzle: Puzzle, accentColor: number, room: number | null): Segment {
     const seg = new Segment(this.assets, this.world, {
       index,
       oz: -(index - 1) * ZONE_LENGTH,
@@ -67,7 +67,7 @@ export class Level {
     this.pools.corridor.add(...seg.corridorLights);
     this.pools.pod.add(seg.pod.light);
     this.pools.beacon.add(...seg.beacons.map((b) => b.light));
-    this.pools.chest.add(seg.chest.light);
+    if (seg.chest) this.pools.chest.add(seg.chest.light);
 
     // 不是第一段：入口放一道開著的隔門（和大門同一個模型）
     if (this.segments.length > 1) {
@@ -104,7 +104,7 @@ export class Level {
     this.pools.corridor.remove(...seg.corridorLights);
     this.pools.pod.remove(seg.pod.light);
     this.pools.beacon.remove(...seg.beacons.map((b) => b.light));
-    this.pools.chest.remove(seg.chest.light);
+    if (seg.chest) this.pools.chest.remove(seg.chest.light);
     // 這一段入口的隔門也一起拿掉（後面那一段入口的隔門留著，當作新的端牆）
     for (let k = this.bulkheads.length - 1; k >= 0; k--) {
       if (this.bulkheads[k].segment !== seg) continue;

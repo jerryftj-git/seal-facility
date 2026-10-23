@@ -27,6 +27,16 @@ export function corridorColor(k: number, cfg = RUN_CONFIG): number {
   return c[(k - 1) % c.length];
 }
 
+/**
+ * 有補給的門（寶箱＋側室小電池）排程：lastSupply 是上一道有補給的門。
+ * 前 supply.always 道每道都有；之後隨機隔 supply.gaps 其中一個。
+ */
+export function nextSupplyDoor(lastSupply: number, rng: Rng, cfg = RUN_CONFIG): number {
+  if (lastSupply < cfg.supply.always) return lastSupply + 1;
+  const g = cfg.supply.gaps;
+  return lastSupply + g[Math.min(g.length - 1, Math.floor(rng() * g.length))];
+}
+
 /** 每段隨機開一間側室（候選側室的編號） */
 export function pickSideRoom(count: number, rng: Rng): number {
   return Math.min(count - 1, Math.floor(rng() * count));

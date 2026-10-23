@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { charge, displaySeconds, drain, powerLevel } from '../../src/run/power';
-import { corridorColor, creaturesForDoor, doorPuzzle, pickSideRoom, scoreFor } from '../../src/run/doors';
+import { corridorColor, creaturesForDoor, doorPuzzle, nextSupplyDoor, pickSideRoom, scoreFor } from '../../src/run/doors';
 import { updateBest } from '../../src/run/record';
 import { RUN_CONFIG } from '../../src/run/runConfig';
 import { computeReadings, createRng, PHASE1_SPECIES } from '../../src/puzzle';
@@ -81,5 +81,38 @@ describe('最佳紀錄', () => {
     expect(updateBest({ score: 30, doors: 3 }, { score: 40, doors: 4 })).toEqual({ best: { score: 40, doors: 4 }, isNew: true });
     expect(updateBest({ score: 30, doors: 3 }, { score: 30, doors: 3 })).toEqual({ best: { score: 30, doors: 3 }, isNew: false });
     expect(updateBest({ score: 30, doors: 3 }, { score: 10, doors: 1 })).toEqual({ best: { score: 30, doors: 3 }, isNew: false });
+  });
+});
+
+describe('補給（寶箱＋側室電池）的排程', () => {
+  /** 模擬一局：回傳第 1～count 道門有沒有補給 */
+  const plan = (seed: number, count = 40) => {
+    const rng = createRng(seed);
+    let next = 1;
+    const has: boolean[] = [];
+    for (let k = 1; k <= count; k++) {
+      const yes = k === next;
+      if (yes) next = nextSupplyDoor(k, rng);
+      has.push(yes);
+    }
+    return has;
+  };
+
+  it('前 3 道門每道都有', () => {
+    for (let seed = 0; seed < 50; seed++) expect(plan(seed).slice(0, 3)).toEqual([true, true, true]);
+  });
+
+  it('第 3 門之後，有補給的門之間隔 3 或 5 道（兩種都會出現）', () => {
+    const gaps = new Set<number>();
+    for (let seed = 0; seed < 50; seed++) {
+      const doors = plan(seed).flatMap((h, i) => (h ? [i + 1] : []));
+      for (let i = 3; i < doors.length; i++) {
+        const gap = doors[i] - doors[i - 1];
+        expect([3, 5]).toContain(gap);
+        gaps.add(gap);
+      }
+      expect(doors[3] === 6 || doors[3] === 8).toBe(true);
+    }
+    expect([...gaps].sort()).toEqual([3, 5]);
   });
 });
